@@ -14,7 +14,7 @@
 ;; BOZO: All basic FTY type definitions in the examples directory should
 ;; eventually be moved to this file.
 
-(def-saved-event maybe-integer-example
-  (defoption maybe-integer integerp
-    :parents (tutorial))
-  )
+;; (def-saved-event maybe-integer-example
+;;   (defoption maybe-integer integerp
+;;     :parents (tutorial))
+;;   )
