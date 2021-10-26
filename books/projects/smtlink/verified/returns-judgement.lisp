@@ -143,8 +143,6 @@
   :guard (not (equal fn 'quote))
   (b* ((fn (symbol-fix fn))
        (acc (pseudo-term-fix acc))
-       (- (cw "return-spec: ~q0" return-spec))
-       (- (cw "actuals: ~q0" actuals))
        (returns-thm-substed
         (get-substed-theorem return-spec actuals state))
        ((mv ok hypo return-judge)

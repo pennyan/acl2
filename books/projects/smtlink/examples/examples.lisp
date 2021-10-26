@@ -44,13 +44,12 @@
   ///
   (more-returns
    (r (>= r 0)
-      :name foo->=-0)))
-
-(set-uninterpreted `((foo . ,(make-uninterpreted :formals '(a b)
-                                                 :formal-types '(rationalp rationalp)
-                                                 :return-type 'rationalp)))
-                   :default
-                   (w state))
+      :name foo->=-0))
+  (defthm integerp-of-foo
+    (implies (and (integerp a) (integerp b))
+             (integerp (foo a b)))
+    :hints (("Goal"
+             :in-theory (enable foo)))))
 
 (defthm test3
   (implies (and (integerp x)
@@ -63,6 +62,69 @@
                              :depth 0))
             :hypotheses ((:instance foo->=-0
                                     ((a x) (b y))))))))
+
+(define foo-int-int-rat ((a integerp)
+                         (b integerp))
+  :returns (r rationalp)
+  (foo (ifix a) (ifix b))
+  ///
+  (more-returns
+   (r (implies (and (integerp a) (integerp b) (rationalp (foo a b)))
+               (equal (foo a b) r))
+      :name replace-of-foo-int-int-rat)))
+
+(define foo-int-int-int ((a integerp)
+                         (b integerp))
+  :returns (r integerp)
+  (foo (ifix a) (ifix b))
+  ///
+  (more-returns
+   (r (implies (and (integerp a) (integerp b) (integerp (foo a b)))
+               (equal (foo a b) r))
+      :name replace-of-foo-int-int-int)))
+
+(define bar ((x rationalp) (y integerp))
+  :returns (r)
+  (+ (rfix x) (ifix y))
+  ///
+  (more-returns
+   (r (if (and (>= x 0) (>= y 0)) (>= r 0) 't)
+      :name bar->=-0)
+   (r (implies (and (rationalp x) (integerp y)) (rationalp r))
+      :name rationalp-of-bar)))
+
+(acl2::must-fail
+(defthm test4
+  (implies (and (integerp x) (integerp y))
+           (>= (bar (foo x y) (foo x y)) 0))
+  :hints (("Goal"
+           :smtlink
+           (:functions ((foo :formals (a b)
+                             :return (rationalp-of-foo
+                                      integerp-of-foo)
+                             :depth 0
+                             :replace (replace-of-foo-int-int-rat
+                                       replace-of-foo-int-int-int))
+                        (foo-int-int-rat :formals (a b)
+                                         :return (rationalp-of-foo-int-int-rat)
+                                         :depth 0)
+                        (foo-int-int-int :formals (a b)
+                                         :return (integerp-of-foo-int-int-int)
+                                         :depth 0)
+                        (bar :formals (x y)
+                             :return (rationalp-of-bar)
+                             :depth 0))
+            ;; The hypotheses will go into conditions in if, currently
+            ;; replacement is not supported for if conditions, hence I
+            ;; temporarily comment out the hypotheses.
+            ;; Without these hypotheses, Z3 should produce a cex.
+            ;; :hypotheses ((:instance foo->=-0
+            ;;                         ((a x) (b y)))
+            ;;              (:instance bar->=-0
+            ;;                         ((x (foo x y))
+            ;;                          (y (foo x y)))))
+                       ))))
+)
 
 ;; Example 1
 ;; (def-saved-event x^2-y^2

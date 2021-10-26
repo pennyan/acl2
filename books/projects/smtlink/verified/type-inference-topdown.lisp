@@ -736,7 +736,6 @@
                                state)
   (b* (((unless (pseudo-term-listp cl)) (value nil))
        ((unless (smtlink-hint-p smtlink-hint)) (value (list cl)))
-       (- (cw "cl: ~q0" cl))
        (goal (disjoin cl))
        (h (construct-type-options smtlink-hint goal))
        ((mv okp tterm)
@@ -748,8 +747,7 @@
           (& (mv nil (make-typed-term)))))
        ((unless okp)
         (prog2$ (er hard? 'type-inference-topdown=>type-judge-topdown-cp
-                    "The input term is of wrong shape. It should look like ~
-                     (typed-goal ...) ~%")
+                    "The input term is of wrong shape.~%")
                 (value (list cl))))
        ((unless (good-typed-term-p tterm))
         (prog2$ (er hard? 'type-inference-topdown=>type-judge-topdown-cp

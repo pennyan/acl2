@@ -77,6 +77,5 @@
   `(make-event
     (b* ((new-hint (change-smtlink-hint
                     (get-smtlink-hint ',hintname ,w)
-                    :uninterpreted ,uninterpreted))
-         (- (cw "~q0" new-hint)))
+                    :uninterpreted ,uninterpreted)))
       (value `(table smt-hint-table ',,hintname ',new-hint)))))
