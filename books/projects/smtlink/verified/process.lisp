@@ -32,7 +32,7 @@
 ;;                                            :return (returns-thm
 ;;                                                     another-returns-thm)
 ;;                                            :uninterpreted-hints ((:use lemma))
-;;                                            :replace replace-thm
+;;                                            :replace (replace-thm)
 ;;                                            :depth 1))
 ;;                            :hypotheses ((:instance thm1 ((x (1+ (foo a))) (y n)))
 ;;                                         (:instance thm2 ...))
@@ -41,19 +41,19 @@
 ;;                                     ((rational-list-fix
 ;;                                       :formals (lst)
 ;;                                       :returns (returns-thm)
-;;                                       :replace replace-thm)
+;;                                       :replace (replace-thm))
 ;;                                      (rational-list-car
 ;;                                       :formals (lst)
 ;;                                       :returns (returns-thm)
-;;                                       :replace replace-thm)
+;;                                       :replace (replace-thm))
 ;;                                      (rational-list-cdr
 ;;                                       :formals (lst)
 ;;                                       :returns (returns-thm)
-;;                                       :replace replace-thm)
+;;                                       :replace (replace-thm))
 ;;                                      (rational-list-cons
 ;;                                       :formals (x lst)
 ;;                                       :returns (returns-thm)
-;;                                       :replace replace-thm))
+;;                                       :replace (replace-thm)))
 ;;                                     :subtypes
 ;;                                     ((integer-listp
 ;;                                       :formals (x)
@@ -143,7 +143,7 @@
             (:formals (symbol-listp second))
             (:return (symbol-listp second))
             (:uninterpreted-hints (true-listp second))
-            (:replace (symbolp second))
+            (:replace (symbol-listp second))
             (:depth (natp second))
             (t (er hard? 'process=>function-option-syntax-p-helper
                    "Smtlink-hint function hint option doesn't include: ~p0.
@@ -163,7 +163,7 @@
                        (implies (equal (car term) :uninterpreted-hints)
                                 (true-listp (cadr term)))
                        (implies (equal (car term) :replace)
-                                (symbolp (cadr term)))
+                                (symbol-listp (cadr term)))
                        (implies (equal (car term) :depth)
                                 (natp (cadr term)))))
          :name definition-of-function-option-syntax-p-helper)
@@ -203,7 +203,7 @@
                        (implies (equal (car term) :uninterpreted-hints)
                                 (true-listp (cadr term)))
                        (implies (equal (car term) :replace)
-                                (symbolp (cadr term)))
+                                (symbol-listp (cadr term)))
                        (implies (equal (car term) :depth)
                                 (natp (cadr term)))))
          :name definition-of-function-option-syntax-p
@@ -215,7 +215,7 @@
                        (not (equal (car term) :formals))
                        (not (equal (car term) :return))
                        (not (equal (car term) :uninterpreted-hints))
-                       (not(equal (car term) :replace)))
+                       (not (equal (car term) :replace)))
                   (equal (car term) :depth))
          :name option-of-function-option-syntax-p
          :hints (("Goal"
@@ -362,7 +362,6 @@
          (first-ok
           (case first
             (:functions (function-list-syntax-p second))
-            (:fixer (function-syntax-p second))
             (:subtypes (sub/supertype-list-syntax-p second))
             (:supertypes (sub/supertype-list-syntax-p second))
             (t (er hard? 'process=>type-option-syntax-p-helper
@@ -377,8 +376,6 @@
                   (and (consp (cdr term))
                        (implies (equal (car term) :functions)
                                 (function-list-syntax-p (cadr term)))
-                       (implies (equal (car term) :fixer)
-                                (function-syntax-p (cadr term)))
                        (implies (equal (car term) :subtypes)
                                 (sub/supertype-list-syntax-p (cadr term)))
                        (implies (equal (car term) :supertypes)
@@ -388,7 +385,6 @@
          :name definition-of-type-option-syntax-p-helper)
      (ok (implies (and (and ok (consp term) (symbol-listp used))
                        (not (equal (car term) :functions))
-                       (not (equal (car term) :fixer))
                        (not (equal (car term) :subtypes)))
                   (equal (car term) :supertypes))
          :hints (("Goal"
@@ -418,8 +414,6 @@
                   (and (consp (cdr term))
                        (implies (equal (car term) :functions)
                                 (function-list-syntax-p (cadr term)))
-                       (implies (equal (car term) :fixer)
-                                (function-syntax-p (cadr term)))
                        (implies (equal (car term) :subtypes)
                                 (sub/supertype-list-syntax-p (cadr term)))
                        (implies (equal (car term) :supertypes)
@@ -427,7 +421,6 @@
          :name definition-of-type-option-syntax-p)
      (ok (implies (and (and ok (consp term))
                        (not (equal (car term) :functions))
-                       (not (equal (car term) :fixer))
                        (not (equal (car term) :subtypes)))
                   (equal (car term) :supertypes))
          :name option-of-type-option-syntax-p)
@@ -653,7 +646,7 @@
             (:return (change-smt-function smt-func :returns content))
             (:uninterpreted-hints (change-smt-function smt-func
                                                        :uninterpreted-hints content))
-            (:replace (change-smt-function smt-func :replace-thm content))
+            (:replace (change-smt-function smt-func :replace-thms content))
             (:depth (change-smt-function smt-func :depth content)))))
       (construct-function-option-lst rest new-smt-func)))
 
@@ -742,9 +735,6 @@
             (:functions
              (change-smt-type smt-type
                               :functions (construct-type-functions content)))
-            (:fixer
-             (change-smt-type smt-type
-                              :fixer (construct-function content)))
             (:subtypes
              (change-smt-type smt-type
                               :subtypes (construct-sub/supertype-list content)))
