@@ -11,6 +11,7 @@
 (include-book "std/strings/top" :dir :system)
 
 (include-book "../../utils/basics")
+(include-book "../../utils/fresh-vars")
 
 (local (in-theory (enable symbol-symbol-alist-fix)))
 
@@ -39,8 +40,16 @@
                                       symbol-list-fix))))
  )
 
+(local
+ (defthm crock3
+   (implies (and (symbol-listp x)
+                 (symbol-listp y))
+            (symbol-symbol-alistp (pairlis$ x y)))
+   :hints (("Goal"
+            :in-theory (enable pairlis$))))
+ )
+
 (define construct-uninterpreted ((name symbolp)
-                                 (formals symbol-listp)
                                  (formal-types symbol-listp)
                                  (return-type symbolp))
   :returns (property pseudo-termp)
@@ -48,8 +57,8 @@
        ((if (equal name 'quote))
         (er hard? 'construct-uninterpreted=>construct-uninterpreted
             "Function name should not be 'quote.~%"))
-       (formals (symbol-list-fix formals))
        (formal-types (symbol-list-fix formal-types))
-       (return-type (symbol-fix return-type)))
+       (return-type (symbol-fix return-type))
+       (formals (new-fresh-vars (len formal-types) nil)))
     `(implies ,(construct-formal-types (pairlis$ formals formal-types))
               (,return-type (,name ,@formals)))))

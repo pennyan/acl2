@@ -23,7 +23,7 @@
   (b* ((name (symbol-fix name))
        (hints (uninterpreted-fix hints))
        ((uninterpreted h) hints))
-    (construct-uninterpreted name h.formals h.formal-types h.return-type)))
+    (construct-uninterpreted name h.formal-types h.return-type)))
 
 (define translate-uninterpreted-arguments ((types symbol-listp))
   :returns (translated paragraph-p)

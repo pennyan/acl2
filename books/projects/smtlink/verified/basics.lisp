@@ -59,7 +59,8 @@
     (reorder                   . type-judge-bottomup-cp)
     (type-judge-bottomup       . type-judge-topdown-cp)
     (type-judge-topdown        . term-replacement-cp)
-    (term-replacement          . type-extract-cp)
+    (term-replacement          . hint-generation-cp)
+    (hint-generation           . type-extract-cp)
     (type-extract              . smt-trusted-cp)
     (type-extract-custom       . smt-trusted-cp-custom)))
 

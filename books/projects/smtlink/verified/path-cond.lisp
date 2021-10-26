@@ -83,7 +83,7 @@
                           'nil)
                         't
                       'nil)
-                   '((integerp . (rationalp))
+                   '((integerp)
                      (rationalp)
                      (rational-integer-alistp)))
 
@@ -95,7 +95,7 @@
                           'nil)
                         't
                       'nil)
-                   '((integerp . rationalp)
+                   '((integerp)
                      (rationalp)))
 
 (look-up-path-cond 'x
@@ -106,7 +106,7 @@
                           'nil)
                         't
                       'nil)
-                   '((integerp . rationalp)
+                   '((integerp)
                      (rationalp)
                      (maybe-integerp)))
 
@@ -118,7 +118,7 @@
                           'nil)
                         't
                       'nil)
-                   '((integerp . rationalp)
+                   '((integerp)
                      (rationalp)
                      (maybe-integerp)))
 
@@ -126,7 +126,7 @@
                    '(if (not x)
                         (if x 't (if (maybe-integerp x) 't 'nil))
                       'nil)
-                   '((integerp . rationalp)
+                   '((integerp)
                      (rationalp)
                      (maybe-integerp)))
 |#

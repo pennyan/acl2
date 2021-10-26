@@ -26,7 +26,7 @@
    (formals symbol-listp :default nil)
    (returns symbol-listp :default nil)
    (uninterpreted-hints true-listp :default nil)
-   (replace-thm symbolp :default nil)
+   (replace-thms symbol-listp :default nil)
    (depth natp :default 0)))
 
 (defoption maybe-smt-function smt-function-p)
@@ -65,7 +65,6 @@
 
 (defprod smt-type
   ((recognizer symbolp)
-   (fixer smt-function-p :default (make-smt-function))
    (functions smt-function-list-p)
    (subtypes smt-sub/supertype-list-p)
    (supertypes smt-sub/supertype-list-p)))
@@ -75,8 +74,7 @@
   :true-listp t)
 
 (defprod uninterpreted
-  ((formals symbol-listp)
-   (formal-types symbol-listp)
+  ((formal-types symbol-listp)
    (return-type symbolp)))
 
 (defalist symbol-uninterpreted-alist

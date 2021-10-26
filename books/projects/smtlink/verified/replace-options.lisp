@@ -12,38 +12,36 @@
 (include-book "hint-interface")
 (include-book "type-options")
 
-(defalist symbol-thm-spec-alist
-  :key-type symbolp
-  :val-type thm-spec-p
-  :true-listp t)
-
-(defthm assoc-equal-of-symbol-thm-spec-alist
-  (implies (and (symbol-thm-spec-alist-p alst)
-                (assoc-equal x alst))
-           (and (consp (assoc-equal x alst))
-                (thm-spec-p (cdr (assoc-equal x alst))))))
-
 (defprod replace-options
   ((supertype type-to-types-alist-p)
-   (fixers symbol-thm-spec-alist-p)))
+   (replaces symbol-thm-spec-list-alist-p)))
 
-(define construct-fixer-alist ((types smt-type-list-p))
-  :returns (fixer-alst symbol-thm-spec-alist-p)
-  :measure (len types)
-  (b* ((types (smt-type-list-fix types))
-       ((unless (consp types)) nil)
-       ((cons t-hd t-tl) types)
-       ((smt-type type) t-hd)
-       ((smt-function f) type.fixer))
-    (acons f.name (make-thm-spec :formals f.formals
-                                 :thm f.replace-thm)
-           (construct-fixer-alist t-tl))))
+(define construct-replace-spec ((formals symbol-listp)
+                                (replace-lst symbol-listp))
+  :returns (replace-spec-lst thm-spec-list-p)
+  :measure (len replace-lst)
+  (b* ((formals (symbol-list-fix formals))
+       (replace-lst (symbol-list-fix replace-lst))
+       ((unless (consp replace-lst)) nil)
+       ((cons replace-hd replace-tl) replace-lst))
+    (cons (make-thm-spec :formals formals :thm replace-hd)
+          (construct-replace-spec formals replace-tl))))
+
+(define construct-replace-alist ((functions smt-function-list-p))
+  :returns (replace-alst symbol-thm-spec-list-alist-p)
+  :measure (len functions)
+  (b* ((functions (smt-function-list-fix functions))
+       ((unless (consp functions)) nil)
+       ((cons f-hd f-tl) functions)
+       ((smt-function f) f-hd))
+    (acons f.name (construct-replace-spec f.formals f.replace-thms)
+           (construct-replace-alist f-tl))))
 
 (define construct-replace-options ((hints smtlink-hint-p))
   :returns (type-alst replace-options-p)
   (b* ((hints (smtlink-hint-fix hints))
        ((smtlink-hint h) hints)
        ((mv & supertype) (construct-sub/supertype-alist h.types))
-       (fixers (construct-fixer-alist h.types)))
+       (replace-alst (construct-replace-alist h.functions)))
     (make-replace-options :supertype supertype
-                          :fixers fixers)))
+                          :replaces replace-alst)))
