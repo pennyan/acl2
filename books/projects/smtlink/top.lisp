@@ -18,6 +18,7 @@
 (include-book "verified/type-inference-bottomup")
 (include-book "verified/type-inference-topdown")
 (include-book "verified/term-replacement")
+(include-book "verified/hint-generation")
 (include-book "verified/type-extract")
 
 ;; trusted

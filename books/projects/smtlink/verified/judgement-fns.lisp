@@ -1442,7 +1442,7 @@ state)
            :in-theory (enable type-judgement-top-list))))
 
 ;; ------------------------------------------------------------
-;; Substitute term in judgements
+;; Substitute rhs in judge with lhs
 
 (define generate-judge-from-equality-acc ((lhs pseudo-termp)
                                           (rhs pseudo-termp)
@@ -1524,3 +1524,70 @@ state)
                      a))
   :hints (("Goal"
            :in-theory (e/d (generate-judge-from-equality) ()))))
+
+;; ------------------------------------------------------------
+;; Look up type predicate from judgements
+
+(define look-up-type-predicate-acc ((term pseudo-termp)
+                                    (judge pseudo-termp)
+                                    (supertype-alst type-to-types-alist-p)
+                                    (acc pseudo-term-listp))
+  :returns (type-term-lst pseudo-term-listp)
+  :measure (acl2-count (pseudo-term-fix judge))
+  :verify-guards nil
+  (b* ((term (pseudo-term-fix term))
+       (judge (pseudo-term-fix judge))
+       (supertype-alst (type-to-types-alist-fix supertype-alst))
+       (acc (pseudo-term-list-fix acc))
+       ((if (equal judge ''t)) acc)
+       ((if (type-predicate-of-term judge term supertype-alst))
+        (cons judge acc))
+       ((unless (is-conjunct? judge)) acc)
+       ((list* & judge-hd judge-tl &) judge)
+       (new-acc (look-up-type-predicate-acc term judge-hd supertype-alst acc)))
+    (look-up-type-predicate-acc term judge-tl supertype-alst new-acc)))
+
+(verify-guards look-up-type-predicate-acc)
+
+(define look-up-type-predicate ((term pseudo-termp)
+                                (judge pseudo-termp)
+                                (supertype-alst type-to-types-alist-p))
+  :returns (type-term-lst pseudo-term-listp)
+  (look-up-type-predicate-acc term judge supertype-alst nil))
+
+(skip-proofs
+(defthm type-predicate-of-look-up
+  (implies (equal (len (look-up-type-predicate term judge supertype-alst)) 1)
+           (and (type-predicate-of-term
+                 (car (look-up-type-predicate term judge supertype-alst))
+                 term supertype-alst)
+                (consp (car (look-up-type-predicate term judge
+                                                    supertype-alst)))
+                (symbolp (caar (look-up-type-predicate term judge
+                                                       supertype-alst)))))
+  :hints (("Goal"
+           :expand (look-up-type-predicate-acc term judge supertype-alst
+                                               nil))))
+)
+
+#|
+(look-up-type-predicate 'x
+                        '(if (if (not x)
+                                 (if (maybe-integerp x)
+                                     't
+                                   'nil)
+                               'nil)
+                             't
+                           'nil)
+                        '((integerp)
+                          (rationalp)
+                          (maybe-integerp)))
+
+(look-up-type-predicate 'x
+                        '(if (not x)
+                             (if x 't (if (maybe-integerp x) 't 'nil))
+                           'nil)
+                        '((integerp)
+                          (rationalp)
+                          (maybe-integerp)))
+|#

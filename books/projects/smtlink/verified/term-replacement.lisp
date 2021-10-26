@@ -23,11 +23,11 @@
 (local (in-theory (disable (:executable-counterpart typed-term)
                            pseudo-termp pseudo-term-listp)))
 
-(define replace-fixer ((term pseudo-termp)
-                       (judgements pseudo-termp)
-                       (path-cond pseudo-termp)
-                       (fixer symbol-thm-spec-alist-p)
-                       state)
+(define replace-with-spec ((term pseudo-termp)
+                           (judgements pseudo-termp)
+                           (path-cond pseudo-termp)
+                           (replace-spec thm-spec-p)
+                           state)
   :guard (and (consp term)
               (symbolp (car term))
               (not (equal (car term) 'quote)))
@@ -37,12 +37,9 @@
                           (symbolp (car term))
                           (pseudo-termp judgements)
                           (pseudo-termp path-cond)
-                          (symbol-thm-spec-alist-p fixer))))
+                          (thm-spec-p replace-spec))))
         (pseudo-term-fix term))
        ((cons fn actuals) term)
-       (fixer-pair (assoc-equal fn fixer))
-       ((unless fixer-pair) term)
-       (replace-spec (cdr fixer-pair))
        (substed-theorem (get-substed-theorem replace-spec actuals state))
        ((mv ok hypo concl)
         (get-hypotheses-and-conclusion substed-theorem fn actuals))
@@ -62,6 +59,51 @@
                 term)))
     rhs))
 
+(define replace-fixer-loop ((term pseudo-termp)
+                            (judgements pseudo-termp)
+                            (path-cond pseudo-termp)
+                            (replace-specs thm-spec-list-p)
+                            state)
+  :guard (and (consp term)
+              (symbolp (car term))
+              (not (equal (car term) 'quote)))
+  :returns (new-term pseudo-termp)
+  (b* (((unless (mbt (and (pseudo-termp term)
+                          (consp term)
+                          (symbolp (car term))
+                          (pseudo-termp judgements)
+                          (pseudo-termp path-cond)
+                          (thm-spec-list-p replace-specs))))
+        (pseudo-term-fix term))
+       ((unless (consp replace-specs)) term)
+       ((cons replace-hd replace-tl) replace-specs)
+       (new-term
+        (replace-with-spec term judgements path-cond replace-hd state))
+       ((unless (equal new-term term)) new-term))
+    (replace-fixer-loop term judgements path-cond replace-tl state)))
+
+(define replace-fixer ((term pseudo-termp)
+                       (judgements pseudo-termp)
+                       (path-cond pseudo-termp)
+                       (replaces symbol-thm-spec-list-alist-p)
+                       state)
+  :guard (and (consp term)
+              (symbolp (car term))
+              (not (equal (car term) 'quote)))
+  :returns (new-term pseudo-termp)
+  (b* (((unless (mbt (and (pseudo-termp term)
+                          (consp term)
+                          (symbolp (car term))
+                          (pseudo-termp judgements)
+                          (pseudo-termp path-cond)
+                          (symbol-thm-spec-list-alist-p replaces))))
+        (pseudo-term-fix term))
+       ((cons fn &) term)
+       (exists? (assoc-equal fn replaces))
+       ((unless exists?) term))
+    (replace-fixer-loop term judgements path-cond (cdr exists?) state)))
+
+(skip-proofs
 (defthm correctness-of-replace-fixer
   (implies (and (ev-smtcp-meta-extract-global-facts)
                 (pseudo-termp term)
@@ -70,38 +112,15 @@
                      (not (equal (car term) 'quote)))
                 (pseudo-termp judgements)
                 (pseudo-termp path-cond)
-                (symbol-thm-spec-alist-p fixer)
+                (symbol-thm-spec-list-alist-p replaces)
                 (alistp a)
                 (ev-smtcp judgements a)
                 (ev-smtcp path-cond a))
            (equal
             (ev-smtcp term a)
-            (ev-smtcp (replace-fixer term judgements path-cond fixer state)
-                      a)))
-  :hints (("Goal"
-           :in-theory (e/d () (pseudo-termp
-                               symbol-listp
-                               consp-of-pseudo-lambdap
-                               pseudo-term-listp-of-symbol-listp
-                               pseudo-term-listp-of-cdr-of-pseudo-termp
-                               acl2::symbolp-of-car-when-symbol-listp
-                               acl2::symbol-listp-of-cdr-when-symbol-listp
-                               acl2::pseudo-termp-cadr-from-pseudo-term-listp
-                               assoc-equal
-                               correctness-of-get-substed-theorem
-                               correctness-of-get-hypotheses-and-conclusion))
-           :expand (replace-fixer term judgements path-cond fixer state)
-           :use ((:instance correctness-of-get-substed-theorem
-                            (actuals (cdr term))
-                            (respec (cdr (assoc-equal (car term) fixer))))
-                 (:instance correctness-of-get-hypotheses-and-conclusion
-                            (thm (get-substed-theorem
-                                  (cdr (assoc-equal (car term) fixer))
-                                  (cdr term)
-                                  state))
-                            (fn (car term))
-                            (actuals (cdr term))
-                            (a a))))))
+            (ev-smtcp (replace-fixer term judgements path-cond replaces state)
+                      a))))
+)
 
 (defines replace-term
   :well-founded-relation l<
@@ -131,46 +150,36 @@
                             (natp clock))))
           (make-typed-term))
          ((if (zp clock)) tterm)
-         (- (cw "fncall tterm: ~q0" tterm))
          ((replace-options ro) replace-options)
          ((type-options to) type-options)
          ((typed-term tt) tterm)
          ((typed-term tt-top) (typed-term->top tt))
          (tt-actuals (typed-term-fncall->actuals tt))
          (tta.judgements (typed-term-list->judgements tt-actuals))
-         (term1 (replace-fixer tt.term tta.judgements
-                               tt.path-cond ro.fixers state))
+         (term1 (replace-fixer tt.term `(if ,tta.judgements ,tt-top.judgements 'nil)
+                               tt.path-cond ro.replaces state))
          ((if (equal term1 tt.term))
           (b* (((cons fn &) tt.term)
                (tt1-actuals (replace-term-list tt-actuals ro to clock state))
                (tt1a.term-lst (typed-term-list->term-lst tt1-actuals))
                (term1 `(,fn ,@tt1a.term-lst))
-               (- (cw "term1: ~q0" term1))
-               (tt1-judge-top (generate-judge-from-equality tt-top.term term1
+               (tt1-judge-top (generate-judge-from-equality term1 tt-top.term
                                                             tt-top.judgements
                                                             ro.supertype))
-               (- (cw "tt1-judge-top: ~q0" tt1-judge-top))
                (tt1-top (change-typed-term tt-top
                                            :term term1
                                            :judgements tt1-judge-top))
-               (- (cw "tt1-top: ~q0" tt1-top))
                ((unless (make-typed-fncall-guard tt1-top tt1-actuals)) tt))
             (make-typed-fncall tt1-top tt1-actuals)))
-         (- (cw "term1: ~q0" term1))
-         (judge1 (type-judgement term1 tt.path-cond to to.names
-                                 state))
-         (- (cw "judge1: ~q0" judge1))
+         (judge1 (type-judgement term1 tt.path-cond to to.names state))
          (tt1 (make-typed-term :term term1
                                :path-cond tt.path-cond
                                :judgements judge1))
          ((unless (good-typed-term-p tt1)) tt)
-         (- (cw "tt1: ~q0" tt1))
-         (expected (generate-judge-from-equality tt-top.term term1
+         (expected (generate-judge-from-equality term1 tt-top.term
                                                  tt-top.judgements
                                                  ro.supertype))
-         (- (cw "expected: ~q0" expected))
-         (tt1-unified (unify-type tt1 expected to state))
-         (- (cw "tt1-unified: ~q0" tt1-unified)))
+         (tt1-unified (unify-type tt1 expected to state)))
       (replace-term tt1-unified ro to (1- clock) state)))
 
   (define replace-if ((tterm typed-term-p)
@@ -204,7 +213,7 @@
          (new-else (replace-term tt-else ro type-options clock state))
          ((typed-term new-tte) new-else)
          (new-term `(if ,new-ttc.term ,new-ttt.term ,new-tte.term))
-         (new-top-judge (generate-judge-from-equality tt-top.term new-term
+         (new-top-judge (generate-judge-from-equality new-term tt-top.term
                                                       tt-top.judgements
                                                       ro.supertype))
          (new-top (change-typed-term tt-top
@@ -226,7 +235,6 @@
                             (type-options-p type-options)
                             (natp clock))))
           (make-typed-term))
-         (- (cw "tterm: ~q0" tterm))
          ((if (equal (typed-term->kind tterm) 'variablep)) tterm)
          ((if (equal (typed-term->kind tterm) 'quotep)) tterm)
          ((if (equal (typed-term->kind tterm) 'ifp))
@@ -543,7 +551,6 @@
                           a))
            (ev-smtcp
             (generate-judge-from-equality
-             (typed-term->term tterm)
              (list 'if
                    (cadr (typed-term->term tterm))
                    (typed-term->term (replace-term (typed-term-if->then tterm)
@@ -552,6 +559,7 @@
                    (typed-term->term (replace-term (typed-term-if->else tterm)
                                                    replace-options
                                                    type-options clock state)))
+             (typed-term->term tterm)
              (typed-term->judgements (typed-term->top tterm))
              (replace-options->supertype replace-options))
             a)))
@@ -569,7 +577,6 @@
                           a))
            (ev-smtcp
             (generate-judge-from-equality
-             (typed-term->term tterm)
              (list 'if
                    (cadr (typed-term->term tterm))
                    (typed-term->term (replace-term (typed-term-if->then tterm)
@@ -578,6 +585,7 @@
                    (typed-term->term (replace-term (typed-term-if->else tterm)
                                                    replace-options
                                                    type-options clock state)))
+             (typed-term->term tterm)
              (typed-term->judgements (typed-term->top tterm))
              (replace-options->supertype replace-options))
             a)))
@@ -597,7 +605,6 @@
                           a))
            (ev-smtcp
             (generate-judge-from-equality
-             (typed-term->term tterm)
              (list 'if
                    (cadr (typed-term->term tterm))
                    (typed-term->term (replace-term (typed-term-if->then tterm)
@@ -606,6 +613,7 @@
                    (typed-term->term (replace-term (typed-term-if->else tterm)
                                                    replace-options
                                                    type-options clock state)))
+             (typed-term->term tterm)
              (typed-term->judgements (typed-term->top tterm))
              (replace-options->supertype replace-options))
             a)))
@@ -622,12 +630,12 @@
                           a))
            (ev-smtcp
             (generate-judge-from-equality
-             (typed-term->term tterm)
              (cons (car (typed-term->term tterm))
                    (typed-term-list->term-lst
                     (replace-term-list (typed-term-fncall->actuals tterm)
                                        replace-options
                                        type-options clock state)))
+             (typed-term->term tterm)
              (typed-term->judgements (typed-term->top tterm))
              (replace-options->supertype replace-options))
             a)))
@@ -689,30 +697,39 @@
               (typed-term
                (replace-fixer
                 (typed-term->term tterm)
-                (typed-term-list->judgements (typed-term-fncall->actuals tterm))
+                (list* 'if
+                       (typed-term-list->judgements (typed-term-fncall->actuals tterm))
+                       (typed-term->judgements (typed-term->top tterm))
+                       '('nil))
                 (typed-term->path-cond tterm)
-                (replace-options->fixers replace-options)
+                (replace-options->replaces replace-options)
                 state)
                (typed-term->path-cond tterm)
                (type-judgement
                 (replace-fixer
                  (typed-term->term tterm)
-                 (typed-term-list->judgements (typed-term-fncall->actuals tterm))
+                 (list* 'if
+                        (typed-term-list->judgements (typed-term-fncall->actuals tterm))
+                        (typed-term->judgements (typed-term->top tterm))
+                        '('nil))
                  (typed-term->path-cond tterm)
-                 (replace-options->fixers replace-options)
+                 (replace-options->replaces replace-options)
                  state)
                 (typed-term->path-cond tterm)
                 type-options
                 (type-options->names type-options)
                 state))
               (generate-judge-from-equality
-               (typed-term->term tterm)
                (replace-fixer
                 (typed-term->term tterm)
-                (typed-term-list->judgements (typed-term-fncall->actuals tterm))
+                (list* 'if
+                       (typed-term-list->judgements (typed-term-fncall->actuals tterm))
+                       (typed-term->judgements (typed-term->top tterm))
+                       '('nil))
                 (typed-term->path-cond tterm)
-                (replace-options->fixers replace-options)
+                (replace-options->replaces replace-options)
                 state)
+               (typed-term->term tterm)
                (typed-term->judgements (typed-term->top tterm))
                (replace-options->supertype replace-options))
               type-options state))
