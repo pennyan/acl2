@@ -14,6 +14,6 @@
 
 (local (in-theory (enable string-or-symbol-p paragraph-p word-p)))
 
-(define translate-variable ((sym symbolp))
+(define translate-variable ((sym string-or-symbol-p))
   :returns (translated paragraph-p)
   (str::downcase-string (lisp-to-python-names sym)))

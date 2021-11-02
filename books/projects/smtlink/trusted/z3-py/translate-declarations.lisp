@@ -12,11 +12,11 @@
 
 (include-book "../../utils/pseudo-term")
 (include-book "../../verified/judgements")
-(include-book "../../verified/basics")
 (include-book "translate-variable")
 (include-book "translate-quote")
+(include-book "translate-user-type")
 
-(local (in-theory (enable paragraph-p word-p pseudo-term-fix)))
+(local (in-theory (enable paragraph-p word-p pseudo-term-fix string-or-symbol-p)))
 (set-induction-depth-limit 1)
 
 (define conjunction-to-list ((decl-term pseudo-termp)
@@ -57,39 +57,27 @@
                       (symbolp (cadr decl))))
         :name implies-of-is-translatable-decl?)))
 
-(define translate-type ((type symbolp))
-  :returns (translated stringp)
-  (b* ((type (symbol-fix type))
-       (item (assoc-equal type *SMT-types*))
-       ((unless item)
-        (prog2$ (er hard? 'translate-declarations=>translate-type
-                    "Not a basic type, not supported. ~q0" type)
-                "")))
-    (cdr item))
-  ///
-  (more-returns
-   (translated (paragraph-p translated)
-               :name paragraph-of-translate-type)))
-
-(define translate-one-decl ((decl pseudo-termp))
+(define translate-one-decl ((decl pseudo-termp)
+                            (types symbol-smt-type-alist-p))
   :returns (translated paragraph-p)
   (b* (((unless (is-translatable-decl? decl))
         (er hard? 'translate-declarations=>translate-one-decl
             "Declaration is not translatable: ~q0" decl))
        ((list type var) decl)
        (translated-var (translate-variable var))
-       (translated-type (translate-type type)))
+       (translated-type (translate-type type (cdr (assoc-equal type types)))))
     `(,translated-var = "z3.Const" #\( #\' ,translated-var #\' #\, #\Space
                       ,translated-type #\) #\Newline)))
 
-(define translate-declaration-list ((decl-list pseudo-term-listp))
+(define translate-declaration-list ((decl-list pseudo-term-listp)
+                                    (types symbol-smt-type-alist-p))
   :returns (translated paragraph-p)
   :measure (len decl-list)
   (b* ((decl-list (pseudo-term-list-fix decl-list))
        ((unless (consp decl-list)) nil)
        ((cons decl-hd decl-tl) decl-list))
-    (cons (translate-one-decl decl-hd)
-          (translate-declaration-list decl-tl))))
+    (cons (translate-one-decl decl-hd types)
+          (translate-declaration-list decl-tl types))))
 
 #|
 (translate-declaration-list '((rationalp y) (integerp x)))
@@ -128,17 +116,23 @@
  )
 
 (define translate-declarations ((decl-term pseudo-termp)
+                                (types symbol-smt-type-alist-p)
                                 (syms string-listp))
-  :returns (translated paragraph-p)
+  :returns (mv (translated paragraph-p)
+               (smt-property pseudo-term-listp))
   :guard-debug t
   (b* ((decl-term (pseudo-term-fix decl-term))
        (syms (str::string-list-fix syms))
        (decl-list (conjunction-to-list decl-term nil))
+       ((mv translated-types user-type-properties)
+        (create-type-list-top types))
        (translated-declaration-list
-        (translate-declaration-list (reverse decl-list)))
+        (translate-declaration-list (reverse decl-list) types))
        (translated-syms (translate-symbol-enumeration syms)))
-    `(,@translated-syms
-      ,@translated-declaration-list)))
+    (mv `(,translated-syms
+          ,translated-types
+          ,translated-declaration-list)
+        user-type-properties)))
 
 #|
 (translate-declarations '(if (integerp x) (rationalp y) 'nil))

@@ -11,25 +11,26 @@
 
 (include-book "hint-interface")
 
+(local (in-theory (disable pseudo-termp pseudo-term-listp)))
+
 (defalist symbol-smt-function-alist
   :key-type symbolp
   :val-type smt-function-p
-  :pred symbol-smt-function-alistp
   :true-listp t)
 
 (defthm assoc-equal-of-symbol-smt-function-alist
-  (implies (and (symbol-smt-function-alistp alst)
+  (implies (and (symbol-smt-function-alist-p alst)
                 (assoc-equal x alst))
            (and (consp (assoc-equal x alst))
                 (smt-function-p (cdr (assoc-equal x alst))))))
 
 (defprod expand-options
-  ((functions symbol-smt-function-alistp)
-   (types symbol-symbol-alistp)
+  ((functions symbol-smt-function-alist-p)
+   (type-fns symbol-symbol-alistp)
    (wrld-fn-len natp)))
 
 (define construct-function-info ((func-lst smt-function-list-p))
-  :returns (alst symbol-smt-function-alistp)
+  :returns (alst symbol-smt-function-alist-p)
   :measure (len func-lst)
   (b* ((func-lst (smt-function-list-fix func-lst))
        ((unless (consp func-lst)) nil)
@@ -37,36 +38,53 @@
        (name (smt-function->name func-hd)))
     (acons name func-hd (construct-function-info func-tl))))
 
-(define construct-type-related-functions-helper ((func-lst smt-function-list-p)
-                                                 (acc symbol-symbol-alistp))
+(define construct-type-related-function ((func smt-function-p)
+                                         (acc symbol-symbol-alistp))
+  :returns (new-acc symbol-symbol-alistp)
+  (b* ((func (smt-function-fix func))
+       (acc (symbol-symbol-alist-fix acc))
+       (name (smt-function->name func)))
+    (acons name nil acc)))
+
+(define construct-type-related-function-list ((func-lst smt-function-list-p)
+                                              (acc symbol-symbol-alistp))
   :returns (alst symbol-symbol-alistp)
   :measure (len func-lst)
   (b* ((func-lst (smt-function-list-fix func-lst))
        (acc (symbol-symbol-alist-fix acc))
-       ((unless (consp func-lst)) nil)
-       ((cons func-hd func-tl) func-lst)
-       (name (smt-function->name func-hd)))
-    (construct-type-related-functions-helper func-tl (acons name nil acc))))
+       ((unless (consp func-lst)) acc)
+       ((cons func-hd func-tl) func-lst))
+    (construct-type-related-function-list
+     func-tl
+     (construct-type-related-function func-hd acc))))
 
 (define construct-type-related-functions ((types smt-type-list-p)
                                           (acc symbol-symbol-alistp))
   :returns (types symbol-symbol-alistp)
   :measure (len types)
+  :verify-guards nil
   (b* ((types (smt-type-list-fix types))
        (acc (symbol-symbol-alist-fix acc))
-       ((unless (consp types)) nil)
+       ((unless (consp types)) acc)
        ((cons types-hd types-tl) types)
-       (acc-1 (acons (smt-type->recognizer types-hd) nil
-                     (construct-type-related-functions-helper
-                      (smt-type->functions types-hd) acc))))
-    (construct-type-related-functions types-tl acc-1)))
+       (acc-1 (construct-type-related-function
+               (smt-type->recognizer types-hd) acc))
+       (acc-2 (construct-type-related-function
+               (smt-type->fixer types-hd) acc-1))
+       (acc-3 (construct-type-related-function
+               (smt-type->constructor types-hd) acc-2))
+       (acc-4 (construct-type-related-function-list
+               (smt-type->destructors types-hd) acc-3)))
+    (construct-type-related-functions types-tl acc-4)))
+
+(verify-guards construct-type-related-functions)
 
 (define construct-expand-options ((hints smtlink-hint-p))
   :returns (eo expand-options-p)
   (b* ((hints (smtlink-hint-fix hints))
        ((smtlink-hint h) hints)
        (functions (construct-function-info h.functions))
-       (types (construct-type-related-functions h.types nil)))
+       (type-fns (construct-type-related-functions h.types nil)))
     (make-expand-options :functions functions
-                         :types types
+                         :type-fns type-fns
                          :wrld-fn-len h.wrld-fn-len)))
