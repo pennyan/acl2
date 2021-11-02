@@ -23,8 +23,11 @@
 (defprod smt-function
   :parents (smtlink-hint)
   ((name symbolp :default nil)
+   (translation symbolp :default nil)
    (formals symbol-listp :default nil)
+   (formal-types symbol-listp :default nil)
    (returns symbol-listp :default nil)
+   (return-type symbolp :default nil)
    (uninterpreted-hints true-listp :default nil)
    (replace-thms symbol-listp :default nil)
    (depth natp :default 0)))
@@ -64,8 +67,11 @@
   :true-listp t)
 
 (defprod smt-type
-  ((recognizer symbolp)
-   (functions smt-function-list-p)
+  ((kind symbolp)
+   (recognizer smt-function-p :default (make-smt-function))
+   (fixer smt-function-p :default (make-smt-function))
+   (constructor smt-function-p :default (make-smt-function))
+   (destructors smt-function-list-p)
    (subtypes smt-sub/supertype-list-p)
    (supertypes smt-sub/supertype-list-p)))
 
@@ -73,14 +79,26 @@
   :elt-type smt-type-p
   :true-listp t)
 
-(defprod uninterpreted
-  ((formal-types symbol-listp)
-   (return-type symbolp)))
+(defoption maybe-smt-type
+  smt-type-p)
 
-(defalist symbol-uninterpreted-alist
+(defalist symbol-smt-function-alist
   :key-type symbolp
-  :val-type uninterpreted-p
+  :val-type smt-function-p
   :true-listp t)
+
+(defalist symbol-smt-type-alist
+  :key-type symbolp
+  :val-type smt-type-p
+  :true-listp t)
+
+(defthm assoc-equal-of-symbol-smt-type-alist
+  (implies (symbol-smt-type-alist-p alst)
+           (maybe-smt-type-p (cdr (assoc-equal x alst)))))
+
+(defprod trusted-hint
+  ((uninterpreted symbol-smt-function-alist-p)
+   (user-types symbol-smt-type-alist-p)))
 
 (local (in-theory (disable symbol-listp)))
 
@@ -95,7 +113,7 @@
    (global-hint symbolp :default nil)
    (wrld-fn-len natp :default 0)
    (customp booleanp :default nil)
-   (uninterpreted symbol-uninterpreted-alist-p :default nil)))
+   (trusted-hint trusted-hint-p :default (make-trusted-hint))))
 
 (defalist smtlink-hint-alist
   :key-type symbolp

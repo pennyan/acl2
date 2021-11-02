@@ -855,7 +855,7 @@
        (next-cp (cdr (assoc-equal 'term-replacement *SMT-architecture*)))
        ((if (null next-cp)) (list cl))
        (the-hint
-        `(:clause-processor (,next-cp clause ',smtlink-hint)))
+        `(:clause-processor (,next-cp clause ',smtlink-hint state)))
        (hinted-goal `((hint-please ',the-hint) ,@new-cl)))
     (list hinted-goal)))
 

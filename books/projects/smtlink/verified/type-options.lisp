@@ -65,8 +65,8 @@
        ((smt-type tp) types-hd)
        ((mv subtype-tl supertype-tl)
         (construct-sub/supertype-alist types-tl)))
-    (mv (acons tp.recognizer tp.subtypes subtype-tl)
-        (acons tp.recognizer tp.supertypes supertype-tl))))
+    (mv (acons (smt-function->name tp.recognizer) tp.subtypes subtype-tl)
+        (acons (smt-function->name tp.recognizer) tp.supertypes supertype-tl))))
 
 (define construct-return-spec ((formals symbol-listp)
                                (return-lst symbol-listp))
@@ -79,15 +79,58 @@
     (cons (make-thm-spec :formals formals :thm return-hd)
           (construct-return-spec formals return-tl))))
 
-(define construct-function-alist ((funcs smt-function-list-p))
+(define construct-function-alist ((funcs smt-function-list-p)
+                                  (acc symbol-thm-spec-list-alist-p))
   :returns (func-alst symbol-thm-spec-list-alist-p)
   :measure (len funcs)
   (b* ((funcs (smt-function-list-fix funcs))
-       ((unless (consp funcs)) nil)
+       (acc (symbol-thm-spec-list-alist-fix acc))
+       ((unless (consp funcs)) acc)
        ((cons f-hd f-tl) funcs)
        ((smt-function f) f-hd))
-    (acons f.name (construct-return-spec f.formals f.returns)
-           (construct-function-alist f-tl))))
+    (construct-function-alist f-tl
+                              (acons f.name
+                                     (construct-return-spec f.formals f.returns)
+                                     acc))))
+
+(define construct-type-function ((type smt-type-p)
+                                 (acc symbol-thm-spec-list-alist-p))
+  :returns (func-alst symbol-thm-spec-list-alist-p)
+  (b* ((type (smt-type-fix type))
+       (acc (symbol-thm-spec-list-alist-fix acc))
+       ((smt-type tp) type)
+       (acc-1 (construct-function-alist tp.destructors acc))
+       ((smt-function rf) tp.recognizer)
+       (acc-2 (acons rf.name
+                     (construct-return-spec rf.formals rf.returns)
+                     acc-1))
+       ((smt-function ff) tp.fixer)
+       (acc-3 (acons ff.name
+                     (construct-return-spec ff.formals ff.returns)
+                     acc-2))
+       ((smt-function cf) tp.constructor))
+    (acons cf.name
+           (construct-return-spec cf.formals cf.returns)
+           acc-3)))
+
+(define construct-type-function-alist ((types smt-type-list-p)
+                                       (acc symbol-thm-spec-list-alist-p))
+  :returns (func-alst symbol-thm-spec-list-alist-p)
+  :measure (len types)
+  (b* ((types (smt-type-list-fix types))
+       (acc (symbol-thm-spec-list-alist-fix acc))
+       ((unless (consp types)) acc)
+       ((cons type-hd type-tl) types)
+       (alst1 (construct-type-function type-hd acc)))
+    (construct-type-function-alist type-tl alst1)))
+
+(define construct-all-functions ((funcs smt-function-list-p)
+                                 (types smt-type-list-p))
+  :returns (func-alst symbol-thm-spec-list-alist-p)
+  (b* ((funcs (smt-function-list-fix funcs))
+       (types (smt-type-list-fix types))
+       (alst1 (construct-function-alist funcs nil)))
+    (construct-type-function-alist types alst1)))
 
 (define construct-type-options ((smtlink-hint smtlink-hint-p)
                                 (term pseudo-termp))
@@ -96,7 +139,7 @@
        (term (pseudo-term-fix term))
        ((smtlink-hint h) smtlink-hint)
        ((mv subtype supertype) (construct-sub/supertype-alist h.types))
-       (functions (construct-function-alist h.functions))
+       (functions (construct-all-functions h.functions h.types))
        (names (acl2::simple-term-vars term)))
     (make-type-options :supertype supertype
                        :subtype subtype

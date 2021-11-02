@@ -994,7 +994,7 @@
 	       (options (expand-options-fix options))
 	       ((expand-options o) options)
 	       (basic? (is-basic-function fn))
-	       (types? (assoc-equal fn o.types))
+	       (types? (assoc-equal fn o.type-fns))
 	       (lvl (assoc-equal fn fn-lvls))
 	       (functions? (assoc-equal fn o.functions)))
       (or (not (equal basic? nil))

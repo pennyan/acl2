@@ -58,8 +58,7 @@
   :hints (("Goal"
            :smtlink
            (:functions ((foo :formals (a b)
-                             :return (rationalp-of-foo)
-                             :depth 0))
+                             :return (rationalp-of-foo)))
             :hypotheses ((:instance foo->=-0
                                     ((a x) (b y))))))))
 
@@ -102,18 +101,14 @@
            (:functions ((foo :formals (a b)
                              :return (rationalp-of-foo
                                       integerp-of-foo)
-                             :depth 0
                              :replace (replace-of-foo-int-int-rat
                                        replace-of-foo-int-int-int))
                         (foo-int-int-rat :formals (a b)
-                                         :return (rationalp-of-foo-int-int-rat)
-                                         :depth 0)
+                                         :return (rationalp-of-foo-int-int-rat))
                         (foo-int-int-int :formals (a b)
-                                         :return (integerp-of-foo-int-int-int)
-                                         :depth 0)
+                                         :return (integerp-of-foo-int-int-int))
                         (bar :formals (x y)
-                             :return (rationalp-of-bar)
-                             :depth 0))
+                             :return (rationalp-of-bar)))
             ;; The hypotheses will go into conditions in if, currently
             ;; replacement is not supported for if conditions, hence I
             ;; temporarily comment out the hypotheses.
@@ -125,6 +120,72 @@
             ;;                          (y (foo x y)))))
                        ))))
 )
+
+(defprod animal
+  ((furry booleanp)
+   (size integerp)
+   (category symbolp)))
+
+(defthm booleanp-of-animal-p
+  (booleanp (animal-p x)))
+
+(defthm replace-of-animal-fix
+  (implies (and (animal-p x)
+                (animal-p (animal-fix x)))
+           (equal (animal-fix x) x)))
+
+(defthm return-of-animal
+  (implies (and (booleanp x)
+                (integerp y)
+                (symbolp z))
+           (animal-p (animal x y z))))
+
+(defthm return-of-animal->furry
+  (implies (animal-p x)
+           (booleanp (animal->furry x))))
+
+(defthm return-of-animal->size
+  (implies (animal-p x)
+           (integerp (animal->size x))))
+
+(defthm return-of-animal->category
+  (implies (animal-p x)
+           (symbolp (animal->category x))))
+
+(defthm test5
+  (implies (and (animal-p x) (animal-p y)
+                (animal->furry x))
+           (>= (+ (* (animal->size x) (animal->size x))
+                  (* (animal->size y) (animal->size y)))
+               0))
+  :hints (("Goal"
+           :smtlink
+           (:types ((animal-p
+                     :kind :prod
+                     :recognizer (animal-p
+                                  :translation animal
+                                  :formals (x)
+                                  :return (booleanp-of-animal-p))
+                     :fixer (animal-fix$inline
+                             :formals (x)
+                             :return (animal-p-of-animal-fix)
+                             :replace (replace-of-animal-fix))
+                     :constructor (animal
+                                   :translation animal
+                                   :formals (x y z)
+                                   :return (return-of-animal))
+                     :destructors ((animal->furry$inline
+                                    :translation furry
+                                    :formals (x)
+                                    :return (return-of-animal->furry))
+                                   (animal->size$inline
+                                    :translation size
+                                    :formals (x)
+                                    :return (return-of-animal->size))
+                                   (animal->category$inline
+                                    :translation category
+                                    :formals (x)
+                                    :return (return-of-animal->category)))))))))
 
 ;; Example 1
 ;; (def-saved-event x^2-y^2
