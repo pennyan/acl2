@@ -20,22 +20,44 @@
 ;;   :parents (z3-py)
 ;;   :short "SMT-translate translates from ACL2 to SMT."
 
-(local (in-theory (e/d (paragraph-p word-p)
+(local (in-theory (e/d (paragraph-p word-p string-or-symbol-p)
                        (symbol-listp
                         pseudo-term-listp-of-symbol-listp))))
 
-(define translate-function-name ((fn symbolp)
-                                 (uninterpreted symbol-uninterpreted-alist-p))
+;; BOZO: need to find the translation according to type hints
+(define translate-nonbasic-function ((fn symbolp))
+  :returns (translated-fn paragraph-p)
+  :guard-debug t
+  (b* ((fn (symbol-fix fn))
+       (fn-str (string fn))
+       (- (cw "fn-str: ~q0" fn-str))
+       (pos (search "->" fn-str))
+       (end (length fn-str))
+       (- (cw "pos: ~q0" pos))
+       ((unless pos) (translate-variable fn))
+       ((unless (and (>= pos 0) (<= (+ 2 pos) end)))
+        (er hard? 'translate=>translate-nonbasic-function
+            "Function name malformed: ~q0" fn))
+       (type (subseq fn-str 0 pos))
+       (- (cw "type: ~q0" type))
+       (func (subseq fn-str (+ 2 pos) end))
+       (- (cw "func: ~q0" func))
+       (pos2 (search "$INLINE" func))
+       (- (cw "pos2: ~q0" pos2))
+       ((unless pos2)
+        `(,(translate-variable type) "." ,(translate-variable func)))
+       ((unless (and (>= pos2 0) (<= pos2 (length func))))
+        (er hard? 'translate=>translate-nonbasic-function
+            "Function name malformed: ~q0" fn))
+       (func-w/-inline (subseq func 0 pos2)))
+    `(,(translate-variable type) "." ,(translate-variable func-w/-inline))))
+
+(define translate-function-name ((fn symbolp))
   :returns (translated paragraph-p)
   (b* ((fn (symbol-fix fn))
        (basic? (assoc-equal fn *SMT-functions*))
-       (uninterpreted? (assoc-equal fn uninterpreted))
-       ((unless (or basic? uninterpreted?))
-        (prog2$ (er hard? 'translate=>translate-function-name
-                    "Function translation not supported. ~q0" fn)
-                ""))
-       ((if uninterpreted?) (translate-variable fn)))
-    (cadr basic?)))
+       ((if basic?) (cadr basic?)))
+    (translate-nonbasic-function fn)))
 
 (define map-translated-actuals ((actuals paragraph-p))
   :returns (mapped paragraph-p)
@@ -63,6 +85,7 @@
     :measure (acl2-count (pseudo-term-fix term))
     (b* ((term (pseudo-term-fix term))
          ((smtlink-hint h) (smtlink-hint-fix hint))
+         ((trusted-hint th) h.trusted-hint)
          (sym-keeper (symbol-keeper-fix sym-keeper))
          ((if (acl2::variablep term))
           (mv (translate-variable term) sym-keeper))
@@ -73,7 +96,7 @@
           (mv (er hard? 'translate=>translate-term
                   "Found lambda in term ~p0~%" term)
               sym-keeper))
-         (translated-fn (translate-function-name fn h.uninterpreted))
+         (translated-fn (translate-function-name fn))
          ((mv translated-actuals actuals-keeper)
           (translate-term-list actuals hint sym-keeper)))
       (mv `(,translated-fn
@@ -146,6 +169,7 @@
              term)
          (mv nil nil)))
        ((smtlink-hint h) (smtlink-hint-fix smtlink-hint))
+       ((trusted-hint th) h.trusted-hint)
        (- (cw "theorem-body: ~q0" theorem-body))
        (- (cw "avoid-syms: ~q0" avoid-syms))
        ((mv translated-body sym-keeper)
@@ -156,10 +180,11 @@
                                                :avoid-list avoid-syms)))
        (- (cw "decl-list: ~q0" decl-list))
        ((symbol-keeper s) sym-keeper)
-       (translated-decl (translate-declarations decl-list (strip-cdrs s.symbol-map)))
+       ((mv translated-decl decl-properties)
+        (translate-declarations decl-list th.user-types (strip-cdrs s.symbol-map)))
        (- (cw "translated-decl: ~q0" translated-decl))
        ((mv translated-uninterpreted uninterpreted-properties)
-        (translate-uninterpreted h.uninterpreted))
+        (translate-uninterpreted th.uninterpreted th.user-types))
        (pretty-translated-body (pretty-print-theorem translated-body 80))
        (translation `(,translated-decl
                       ,translated-uninterpreted
