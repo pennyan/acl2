@@ -39,7 +39,6 @@
       :mode :program
       (b* (((mv res precond state)
             (SMT-prove-stub (disjoin cl) smtlink-hint state))
-           ;; should I return just precond, or precond and precond\or/goal?
            (subgoal-lst `(,@precond
                           ;; ((hint-please
                           ;;   '(:in-theory (enable hint-please

@@ -147,7 +147,7 @@
                          (smtlink-hint smtlink-hint-p)
                          state)
   :returns (mv (py-term paragraph-p)
-               (smt-precond pseudo-term-listp))
+               (smt-precond pseudo-term-list-listp))
   :ignore-ok t
   (b* ((term (pseudo-term-fix term))
        (- (cw "SMT-translation: ~q0" term))
@@ -184,7 +184,8 @@
        (translation `(,translated-decl
                       ,translated-uninterpreted
                       ,pretty-translated-body))
-       (properties `(,@uninterpreted-properties)))
+       (properties `(,@uninterpreted-properties ,@decl-properties))
+       (- (cw "properties: ~q0" properties)))
     (mv translation properties)))
 
 ;;  )

@@ -19,7 +19,7 @@
 
 (define generate-uninterpreted-property ((name symbolp)
                                          (hints smt-function-p))
-  :returns (property pseudo-termp)
+  :returns (property pseudo-term-listp)
   (b* ((name (symbol-fix name))
        (hints (smt-function-fix hints))
        ((smt-function h) hints))
@@ -56,7 +56,7 @@
 (define translate-uninterpreted ((uninterpreted symbol-smt-function-alist-p)
                                  (types symbol-smt-type-alist-p))
   :returns (mv (py-term paragraph-p)
-               (smt-property pseudo-term-listp))
+               (smt-property pseudo-term-list-listp))
   :measure (len (symbol-smt-function-alist-fix uninterpreted))
   (b* ((uninterpreted (symbol-smt-function-alist-fix uninterpreted))
        (types (symbol-smt-type-alist-fix types))

@@ -62,14 +62,14 @@
     (cons (get-type tterm-hd supertype)
           (get-type-list tterm-tl supertype))))
 
-(define set-destructor-type ((destructor smt-function-p)
-                             (supertype type-to-types-alist-p)
-                             state)
-  :returns (new-des smt-function-p)
-  (b* ((destructor (smt-function-fix destructor))
-       ((smt-function f) destructor)
+(define set-function-return-type ((function smt-function-p)
+                                  (supertype type-to-types-alist-p)
+                                  state)
+  :returns (new-fn smt-function-p)
+  (b* ((function (smt-function-fix function))
+       ((smt-function f) function)
        ((unless (equal (len f.returns) 1))
-        (prog2$ (er hard? 'hint-generation=>set-destructor-type
+        (prog2$ (er hard? 'hint-generation=>set-function-return-type
                     "Currently only support one type signature for ~
                      a destructor function.~%~q0" f.returns)
                 f))
@@ -78,7 +78,7 @@
         (acl2::meta-extract-formula-w return-name (w state)))
        ((unless (and return-thm (pseudo-termp return-thm)))
         (prog2$
-         (er hard? 'hint-generation=>set-destructor-type
+         (er hard? 'hint-generation=>set-function-return-type
              "Formula returned by meta-extract ~p0 is not a pseudo-termp: ~p1~%"
              return-name return-thm)
          f))
@@ -89,22 +89,22 @@
           (& (mv nil nil))))
        ((unless (and okp (symbolp type)
                      (assoc-equal type supertype)))
-        (prog2$ (er hard? 'hint-generation=>set-destructor-type
+        (prog2$ (er hard? 'hint-generation=>set-function-return-type
                     "Malformed returns theorem: ~q0" return-thm-expanded)
                 f)))
-    (change-smt-function destructor :return-type type)))
+    (change-smt-function function :return-type type)))
 
-(define set-destructor-type-list ((destructors smt-function-list-p)
-                                  (supertype type-to-types-alist-p)
-                                  state)
+(define set-function-return-type-list ((functions smt-function-list-p)
+                                       (supertype type-to-types-alist-p)
+                                       state)
   :returns (new-des-lst smt-function-list-p)
-  :measure (len destructors)
-  (b* ((destructors (smt-function-list-fix destructors))
+  :measure (len functions)
+  (b* ((functions (smt-function-list-fix functions))
        (supertype (type-to-types-alist-fix supertype))
-       ((unless (consp destructors)) nil)
-       ((cons des-hd des-tl) destructors))
-    (cons (set-destructor-type des-hd supertype state)
-          (set-destructor-type-list des-tl supertype state))))
+       ((unless (consp functions)) nil)
+       ((cons fn-hd fn-tl) functions))
+    (cons (set-function-return-type fn-hd supertype state)
+          (set-function-return-type-list fn-tl supertype state))))
 
 (define set-types ((type smt-type-p)
                    (supertype type-to-types-alist-p)
@@ -115,8 +115,10 @@
        ((smt-type tp) type))
     (change-smt-type
      type
+     :constructor
+     (set-function-return-type tp.constructor supertype state)
      :destructors
-     (set-destructor-type-list tp.destructors supertype state))))
+     (set-function-return-type-list tp.destructors supertype state))))
 
 (define update-user-types ((fn symbolp)
                            (types symbol-smt-type-alist-p)
