@@ -119,7 +119,7 @@
                                 (types symbol-smt-type-alist-p)
                                 (syms string-listp))
   :returns (mv (translated paragraph-p)
-               (smt-property pseudo-term-listp))
+               (smt-property pseudo-term-list-listp))
   :guard-debug t
   (b* ((decl-term (pseudo-term-fix decl-term))
        (syms (str::string-list-fix syms))

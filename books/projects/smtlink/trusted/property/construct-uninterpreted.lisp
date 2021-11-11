@@ -52,7 +52,7 @@
 (define construct-uninterpreted ((name symbolp)
                                  (formal-types symbol-listp)
                                  (return-type symbolp))
-  :returns (property pseudo-termp)
+  :returns (property pseudo-term-listp)
   (b* ((name (symbol-fix name))
        ((if (equal name 'quote))
         (er hard? 'construct-uninterpreted=>construct-uninterpreted
@@ -60,5 +60,5 @@
        (formal-types (symbol-list-fix formal-types))
        (return-type (symbol-fix return-type))
        (formals (new-fresh-vars (len formal-types) nil)))
-    `(implies ,(construct-formal-types (pairlis$ formals formal-types))
-              (,return-type (,name ,@formals)))))
+    (list `(implies ,(construct-formal-types (pairlis$ formals formal-types))
+                    (,return-type (,name ,@formals))))))
