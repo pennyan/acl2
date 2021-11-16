@@ -11,7 +11,7 @@
 (include-book "std/strings/top" :dir :system)
 
 (include-book "../../verified/hint-interface")
-(include-book "../property/construct-uninterpreted")
+(include-book "../property/uninterpreted-property")
 (include-book "translate-declarations")
 (include-book "datatypes")
 
@@ -23,7 +23,7 @@
   (b* ((name (symbol-fix name))
        (hints (smt-function-fix hints))
        ((smt-function h) hints))
-    (construct-uninterpreted name h.formal-types h.return-type)))
+    (uninterpreted-property name h.formal-types h.return-type)))
 
 (define translate-uninterpreted-arguments ((types symbol-listp)
                                            (type-alst symbol-smt-type-alist-p))

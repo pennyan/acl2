@@ -87,11 +87,36 @@
        (acc (symbol-thm-spec-list-alist-fix acc))
        ((unless (consp funcs)) acc)
        ((cons f-hd f-tl) funcs)
-       ((smt-function f) f-hd))
+       ((smt-function f) f-hd)
+       ((if (assoc-equal f.name acc))
+        (construct-function-alist f-tl acc)))
     (construct-function-alist f-tl
                               (acons f.name
                                      (construct-return-spec f.formals f.returns)
                                      acc))))
+
+(define construct-sum-function ((sum smt-sum-p)
+                                (acc symbol-thm-spec-list-alist-p))
+  :returns (func-alst symbol-thm-spec-list-alist-p)
+  (b* ((sum (smt-sum-fix sum))
+       (acc (symbol-thm-spec-list-alist-fix acc))
+       ((smt-sum s) sum)
+       (acc-1 (construct-function-alist s.destructors acc))
+       ((smt-function cf) s.constructor))
+    (acons cf.name
+           (construct-return-spec cf.formals cf.returns)
+           acc-1)))
+
+(define construct-sum-function-list ((sum-lst smt-sum-list-p)
+                                     (acc symbol-thm-spec-list-alist-p))
+  :returns (func-alst symbol-thm-spec-list-alist-p)
+  :measure (len sum-lst)
+  (b* ((sum-lst (smt-sum-list-fix sum-lst))
+       (acc (symbol-thm-spec-list-alist-fix acc))
+       ((unless (consp sum-lst)) acc)
+       ((cons sum-hd sum-tl) sum-lst)
+       (acc-1 (construct-sum-function sum-hd acc)))
+    (construct-sum-function-list sum-tl acc-1)))
 
 (define construct-type-function ((type smt-type-p)
                                  (acc symbol-thm-spec-list-alist-p))
@@ -99,19 +124,15 @@
   (b* ((type (smt-type-fix type))
        (acc (symbol-thm-spec-list-alist-fix acc))
        ((smt-type tp) type)
-       (acc-1 (construct-function-alist tp.destructors acc))
        ((smt-function rf) tp.recognizer)
-       (acc-2 (acons rf.name
+       (acc-1 (acons rf.name
                      (construct-return-spec rf.formals rf.returns)
-                     acc-1))
+                     acc))
        ((smt-function ff) tp.fixer)
-       (acc-3 (acons ff.name
+       (acc-2 (acons ff.name
                      (construct-return-spec ff.formals ff.returns)
-                     acc-2))
-       ((smt-function cf) tp.constructor))
-    (acons cf.name
-           (construct-return-spec cf.formals cf.returns)
-           acc-3)))
+                     acc-1)))
+    (construct-sum-function-list tp.sums acc-2)))
 
 (define construct-type-function-alist ((types smt-type-list-p)
                                        (acc symbol-thm-spec-list-alist-p))
