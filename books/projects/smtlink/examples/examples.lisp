@@ -100,15 +100,17 @@
            :smtlink
            (:functions ((foo :formals (a b)
                              :return (rationalp-of-foo
-                                      integerp-of-foo)
-                             :replace (replace-of-foo-int-int-rat
-                                       replace-of-foo-int-int-int))
+                                      integerp-of-foo))
                         (foo-int-int-rat :formals (a b)
                                          :return (rationalp-of-foo-int-int-rat))
                         (foo-int-int-int :formals (a b)
                                          :return (integerp-of-foo-int-int-int))
                         (bar :formals (x y)
                              :return (rationalp-of-bar)))
+            :replaces ((foo
+                        :formals (a b)
+                        :thms (replace-of-foo-int-int-rat
+                               replace-of-foo-int-int-int)))
             ;; The hypotheses will go into conditions in if, currently
             ;; replacement is not supported for if conditions, hence I
             ;; temporarily comment out the hypotheses.
@@ -118,7 +120,7 @@
             ;;              (:instance bar->=-0
             ;;                         ((x (foo x y))
             ;;                          (y (foo x y)))))
-                       ))))
+            ))))
 )
 
 (defprod animal
@@ -130,8 +132,7 @@
   (booleanp (animal-p x)))
 
 (defthm replace-of-animal-fix
-  (implies (and (animal-p x)
-                (animal-p (animal-fix x)))
+  (implies (animal-p x)
            (equal (animal-fix x) x)))
 
 (defthm return-of-animal
@@ -168,24 +169,179 @@
                                   :return (booleanp-of-animal-p))
                      :fixer (animal-fix$inline
                              :formals (x)
-                             :return (animal-p-of-animal-fix)
-                             :replace (replace-of-animal-fix))
-                     :constructor (animal
-                                   :translation animal
-                                   :formals (x y z)
-                                   :return (return-of-animal))
-                     :destructors ((animal->furry$inline
-                                    :translation furry
-                                    :formals (x)
-                                    :return (return-of-animal->furry))
-                                   (animal->size$inline
-                                    :translation size
-                                    :formals (x)
-                                    :return (return-of-animal->size))
-                                   (animal->category$inline
-                                    :translation category
-                                    :formals (x)
-                                    :return (return-of-animal->category)))))))))
+                             :return (animal-p-of-animal-fix))
+                     :sums
+                     ((:constructor (animal
+                                     :translation animal
+                                     :formals (x y z)
+                                     :return (return-of-animal))
+                       :destructors ((animal->furry$inline
+                                      :translation furry
+                                      :formals (x)
+                                      :return (return-of-animal->furry))
+                                     (animal->size$inline
+                                      :translation size
+                                      :formals (x)
+                                      :return (return-of-animal->size))
+                                     (animal->category$inline
+                                      :translation category
+                                      :formals (x)
+                                      :return
+                                      (return-of-animal->category)))))))
+            :replaces ((animal-fix$inline
+                        :formals (x)
+                        :thms (replace-of-animal-fix)))))))
+
+(deflist integer-list
+  :elt-type integerp
+  :true-listp t)
+
+(defthmd return-of-cons-for-integer-list
+  (implies (and (integerp x) (integer-list-p y))
+           (integer-list-p (cons x y))))
+
+(defthmd return-of-car-for-integer-list-1
+  (implies (and (integer-list-p x) (not (equal x nil)))
+           (integerp (car x))))
+
+(defthmd return-of-cdr-for-integer-list
+  (implies (integer-list-p x)
+           (integer-list-p (cdr x))))
+
+(define integer-list->cons ((x integerp)
+                            (y integer-list-p))
+  (cons x y)
+  ///
+  (defthmd return-of-integer-list->cons
+    (implies (and (integerp x) (integer-list-p y))
+             (integer-list-p (integer-list->cons x y))))
+
+  (defthmd replace-of-integer-list->cons
+    (implies (and (integerp x) (integer-list-p y))
+             (equal (cons x y)
+                    (integer-list->cons x y)))))
+
+(define integer-list->nil ()
+  nil
+  ///
+  (defthmd return-of-integer-list->nil
+    (integer-list-p (integer-list->nil)))
+
+  (defthm replace-of-integer-list->nil
+    (implies (integer-list-p nil)
+             (equal nil (integer-list->nil)))
+    :rule-classes nil))
+
+(define integer-list->car ((x integer-list-p))
+  (if (consp x) (car x) (ifix (car x)))
+  ///
+  (defthmd return-of-integer-list->car-1
+    (implies (and (integer-list-p x) (not (equal x nil)))
+             (integerp (integer-list->car x))))
+  (defthmd return-of-integer-list->car-2
+    (implies (and (integer-list-p x)
+                  (not (equal x (integer-list->nil))))
+             (integerp (integer-list->car x))))
+
+  ;; It needs to be integer-list->nil
+  (defthmd replace-of-integer-list->car
+    (implies (and (integer-list-p x)
+                  (not (equal x (integer-list->nil))))
+             (equal (car x) (integer-list->car x)))))
+
+(define integer-list->cdr ((x integer-list-p))
+  (cdr x)
+  ///
+  (defthmd return-of-integer-list->cdr
+    (implies (integer-list-p x)
+             (integer-list-p (integer-list->cdr x))))
+
+  (defthmd replace-of-integer-list->cdr
+    (implies (integer-list-p x)
+             (equal (cdr x)
+                    (integer-list->cdr x)))))
+
+(defthmd return-of-car-for-integer-list-2
+  (implies (and (integer-list-p x)
+                (not (equal x (integer-list->nil))))
+           (integerp (car x))))
+
+(defthmd booleanp-of-integer-list-p
+  (booleanp (integer-list-p x)))
+
+(defthmd replace-of-integer-list-fix
+  (implies (integer-list-p x)
+           (equal (integer-list-fix x) x)))
+
+(defthmd return-of-equal-for-integer-list
+  (implies (and (integer-list-p x)
+                (integer-list-p y))
+           (booleanp (equal x y))))
+
+;; I can't test out lists because I need to be able to do replacement
+;; on the condition
+(defthm test6
+  (implies (and (integer-list-p x) (integer-list-p y)
+                (not (equal x nil)))
+           (equal (cons (car x) nil) (cons (car x) nil)))
+  :rule-classes nil
+  :hints (("Goal"
+           :smtlink
+           (:functions ((cons
+                         :formals (x y)
+                         :return (return-of-cons-for-integer-list))
+                        (car
+                         :formals (x)
+                         :return (return-of-car-for-integer-list-1
+                                  return-of-car-for-integer-list-2))
+                        (cdr
+                         :formals (x)
+                         :return (return-of-cdr-for-integer-list))
+                        (equal
+                         :formals (x y)
+                         :return (return-of-equal-for-integer-list)))
+            :types ((integer-list-p
+                     :recognizer (integer-list-p
+                                  :translation integerList
+                                  :formals (x)
+                                  :return (booleanp-of-integer-list-p))
+                     :fixer (integer-list-fix$inline
+                             :formals (x)
+                             :return (integer-list-p-of-integer-list-fix))
+                     :sums
+                     ((:constructor (integer-list->cons
+                                     :translation cons
+                                     :formals (x y)
+                                     :return (return-of-integer-list->cons))
+                       :destructors ((integer-list->car
+                                      :translation car
+                                      :formals (x)
+                                      :return (return-of-integer-list->car-1
+                                               return-of-integer-list->car-2))
+                                     (integer-list->cdr
+                                      :translation cdr
+                                      :formals (x)
+                                      :return (return-of-integer-list->cdr))))
+                      (:constructor (integer-list->nil
+                                     :translation nil
+                                     :return (return-of-integer-list->nil))
+                       :destructors nil))))
+            :replaces ((integer-list-fix$inline
+                        :formals (x)
+                        :thms (replace-of-integer-list-fix))
+                       (cons
+                        :formals (x y)
+                        :thms (replace-of-integer-list->cons))
+                       (car
+                        :formals (x)
+                        :thms (replace-of-integer-list->car))
+                       (cdr
+                        :formals (x)
+                        :thms (replace-of-integer-list->cdr))
+                       (nil
+                        :formals (x)
+                        :thms (replace-of-integer-list->nil))
+                       )))))
 
 ;; Example 1
 ;; (def-saved-event x^2-y^2

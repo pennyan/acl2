@@ -64,15 +64,19 @@
 
 (define set-function-return-type ((function smt-function-p)
                                   (supertype type-to-types-alist-p)
+                                  (trans-type symbolp)
+                                  (fn-acc symbol-trans-hint-alist-p)
                                   state)
-  :returns (new-fn smt-function-p)
+  :returns (mv (new-fn smt-function-p)
+               (new-acc symbol-trans-hint-alist-p))
   (b* ((function (smt-function-fix function))
+       (trans-type (symbol-fix trans-type))
+       (fn-acc (symbol-trans-hint-alist-fix fn-acc))
        ((smt-function f) function)
-       ((unless (equal (len f.returns) 1))
+       ((unless (>= (len f.returns) 1))
         (prog2$ (er hard? 'hint-generation=>set-function-return-type
-                    "Currently only support one type signature for ~
-                     a destructor function.~%~q0" f.returns)
-                f))
+                    "Missing return type for function ~q0" f.name)
+                (mv f fn-acc)))
        (return-name (car f.returns))
        (return-thm
         (acl2::meta-extract-formula-w return-name (w state)))
@@ -81,44 +85,102 @@
          (er hard? 'hint-generation=>set-function-return-type
              "Formula returned by meta-extract ~p0 is not a pseudo-termp: ~p1~%"
              return-name return-thm)
-         f))
+         (mv f fn-acc)))
        (return-thm-expanded (expand-lambda return-thm))
        ((mv okp type)
         (case-match return-thm-expanded
           (('implies & (type &)) (mv t type))
+          ((type &) (mv t type))
           (& (mv nil nil))))
-       ((unless (and okp (symbolp type)
-                     (assoc-equal type supertype)))
+       ((unless (and okp (symbolp type) (assoc-equal type supertype)))
         (prog2$ (er hard? 'hint-generation=>set-function-return-type
                     "Malformed returns theorem: ~q0" return-thm-expanded)
-                f)))
-    (change-smt-function function :return-type type)))
+                (mv f fn-acc)))
+       (trans-hint (make-trans-hint
+                    :type-translation trans-type
+                    :function-translation f.translation)))
+    (mv (change-smt-function function :return-type type)
+        (acons f.name trans-hint fn-acc))))
 
 (define set-function-return-type-list ((functions smt-function-list-p)
                                        (supertype type-to-types-alist-p)
+                                       (trans-type symbolp)
+                                       (fn-acc symbol-trans-hint-alist-p)
                                        state)
-  :returns (new-des-lst smt-function-list-p)
+  :returns (mv (new-des-lst smt-function-list-p)
+               (new-acc symbol-trans-hint-alist-p))
   :measure (len functions)
   (b* ((functions (smt-function-list-fix functions))
        (supertype (type-to-types-alist-fix supertype))
-       ((unless (consp functions)) nil)
-       ((cons fn-hd fn-tl) functions))
-    (cons (set-function-return-type fn-hd supertype state)
-          (set-function-return-type-list fn-tl supertype state))))
+       (trans-type (symbol-fix trans-type))
+       (fn-acc (symbol-trans-hint-alist-fix fn-acc))
+       ((unless (consp functions)) (mv nil fn-acc))
+       ((cons fn-hd fn-tl) functions)
+       ((mv new-fn-hd acc-1)
+        (set-function-return-type
+         fn-hd supertype trans-type fn-acc state))
+       ((mv new-fn-tl acc-2)
+        (set-function-return-type-list
+         fn-tl supertype trans-type acc-1 state)))
+    (mv (cons new-fn-hd new-fn-tl) acc-2)))
+
+(define set-sum ((sum smt-sum-p)
+                 (supertype type-to-types-alist-p)
+                 (trans-type symbolp)
+                 (fn-acc symbol-trans-hint-alist-p)
+                 state)
+  :returns (mv (new-sum smt-sum-p)
+               (new-acc symbol-trans-hint-alist-p))
+  (b* ((sum (smt-sum-fix sum))
+       (supertype (type-to-types-alist-fix supertype))
+       (trans-type (symbol-fix trans-type))
+       (fn-acc (symbol-trans-hint-alist-fix fn-acc))
+       ((smt-sum s) sum)
+       ((mv func-cons acc-1)
+        (set-function-return-type
+         s.constructor supertype trans-type fn-acc state))
+       ((mv func-des acc-2)
+        (set-function-return-type-list
+         s.destructors supertype trans-type acc-1 state)))
+    (mv (change-smt-sum sum
+                        :constructor func-cons
+                        :destructors func-des)
+        acc-2)))
+
+(define set-sum-list ((sum-lst smt-sum-list-p)
+                      (supertype type-to-types-alist-p)
+                      (trans-type symbolp)
+                      (fn-acc symbol-trans-hint-alist-p)
+                      state)
+  :returns (mv (new-sums smt-sum-list-p)
+               (new-acc symbol-trans-hint-alist-p))
+  :measure (len sum-lst)
+  (b* ((sum-lst (smt-sum-list-fix sum-lst))
+       (supertype (type-to-types-alist-fix supertype))
+       (trans-type (symbol-fix trans-type))
+       (fn-acc (symbol-trans-hint-alist-fix fn-acc))
+       ((unless (consp sum-lst)) (mv nil fn-acc))
+       ((cons sum-hd sum-tl) sum-lst)
+       ((mv new-sum-hd acc-hd)
+        (set-sum sum-hd supertype trans-type fn-acc state))
+       ((mv new-sum-tl acc-tl)
+        (set-sum-list sum-tl supertype trans-type acc-hd state)))
+    (mv (cons new-sum-hd new-sum-tl) acc-tl)))
 
 (define set-types ((type smt-type-p)
                    (supertype type-to-types-alist-p)
+                   (fn-acc symbol-trans-hint-alist-p)
                    state)
-  :returns (new-type smt-type-p)
+  :returns (mv (new-type smt-type-p)
+               (new-acc symbol-trans-hint-alist-p))
   (b* ((type (smt-type-fix type))
        (supertype (type-to-types-alist-fix supertype))
-       ((smt-type tp) type))
-    (change-smt-type
-     type
-     :constructor
-     (set-function-return-type tp.constructor supertype state)
-     :destructors
-     (set-function-return-type-list tp.destructors supertype state))))
+       (fn-acc (symbol-trans-hint-alist-fix fn-acc))
+       ((smt-type tp) type)
+       (trans-type (smt-function->translation tp.recognizer))
+       ((mv new-sums new-acc)
+        (set-sum-list tp.sums supertype trans-type fn-acc state)))
+    (mv (change-smt-type type :sums new-sums) new-acc)))
 
 (define update-user-types ((fn symbolp)
                            (types symbol-smt-type-alist-p)
@@ -134,8 +196,11 @@
        (exists? (assoc-equal fn types))
        ((unless exists?) acc)
        ((if (assoc-equal fn th.user-types)) acc)
-       (new-tp (set-types (cdr exists?) supertype state)))
-    (change-trusted-hint acc :user-types (acons fn new-tp th.user-types))))
+       ((mv new-tp new-user-type-fns)
+        (set-types (cdr exists?) supertype th.user-type-fns state)))
+    (change-trusted-hint acc
+                         :user-types (acons fn new-tp th.user-types)
+                         :user-type-fns new-user-type-fns)))
 
 (defines hint-generation
   :well-founded-relation l<

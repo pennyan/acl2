@@ -24,35 +24,31 @@
                        (symbol-listp
                         pseudo-term-listp-of-symbol-listp))))
 
-;; BOZO: need to find the translation according to type hints
-(define translate-nonbasic-function ((fn symbolp))
-  :returns (translated-fn paragraph-p)
-  :guard-debug t
+(define translate-nonbasic-function ((fn symbolp)
+                                     (trusted-hint trusted-hint-p))
+  :returns (mv (translated-fn paragraph-p)
+               (type-fn? booleanp))
   (b* ((fn (symbol-fix fn))
-       (fn-str (string fn))
-       (pos (search "->" fn-str))
-       (end (length fn-str))
-       ((unless pos) (translate-variable fn))
-       ((unless (and (>= pos 0) (<= (+ 2 pos) end)))
-        (er hard? 'translate=>translate-nonbasic-function
-            "Function name malformed: ~q0" fn))
-       (type (subseq fn-str 0 pos))
-       (func (subseq fn-str (+ 2 pos) end))
-       (pos2 (search "$INLINE" func))
-       ((unless pos2)
-        `(,(translate-variable type) "." ,(translate-variable func)))
-       ((unless (and (>= pos2 0) (<= pos2 (length func))))
-        (er hard? 'translate=>translate-nonbasic-function
-            "Function name malformed: ~q0" fn))
-       (func-w/-inline (subseq func 0 pos2)))
-    `(,(translate-variable type) "." ,(translate-variable func-w/-inline))))
+       (trusted-hint (trusted-hint-fix trusted-hint))
+       ((trusted-hint th) trusted-hint)
+       (exists? (assoc-equal fn th.user-type-fns))
+       ((unless exists?) (mv (translate-variable fn) nil))
+       ((trans-hint h) (cdr exists?))
+       (type-trans h.type-translation)
+       (func-trans h.function-translation))
+    (mv `(,(translate-variable type-trans) "."
+          ,(translate-variable func-trans))
+        t)))
 
-(define translate-function-name ((fn symbolp))
-  :returns (translated paragraph-p)
+(define translate-function-name ((fn symbolp)
+                                 (trusted-hint trusted-hint-p))
+  :returns (mv (translated paragraph-p)
+               (type-fn? booleanp))
   (b* ((fn (symbol-fix fn))
+       (trusted-hint (trusted-hint-fix trusted-hint))
        (basic? (assoc-equal fn *SMT-functions*))
-       ((if basic?) (cadr basic?)))
-    (translate-nonbasic-function fn)))
+       ((if basic?) (mv (cadr basic?) nil)))
+    (translate-nonbasic-function fn trusted-hint)))
 
 (define map-translated-actuals ((actuals paragraph-p))
   :returns (mapped paragraph-p)
@@ -91,9 +87,11 @@
           (mv (er hard? 'translate=>translate-term
                   "Found lambda in term ~p0~%" term)
               sym-keeper))
-         (translated-fn (translate-function-name fn))
+         ((mv translated-fn type-fn?) (translate-function-name fn th))
          ((mv translated-actuals actuals-keeper)
-          (translate-term-list actuals hint sym-keeper)))
+          (translate-term-list actuals hint sym-keeper))
+         ((if (and type-fn? (null actuals)))
+          (mv `(,translated-fn) actuals-keeper)))
       (mv `(,translated-fn
             #\(
             ,(map-translated-actuals translated-actuals)
