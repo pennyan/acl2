@@ -29,7 +29,6 @@
    (returns symbol-listp :default nil)
    (return-type symbolp :default nil)
    (uninterpreted-hints true-listp :default nil)
-   (replace-thms symbol-listp :default nil)
    (depth natp :default 0)))
 
 (defoption maybe-smt-function smt-function-p)
@@ -66,12 +65,20 @@
   :elt-type smt-sub/supertype-p
   :true-listp t)
 
+(defprod smt-sum
+  ((tag symbolp :default nil)
+   (constructor smt-function-p :default (make-smt-function))
+   (destructors smt-function-list-p)))
+
+(deflist smt-sum-list
+  :elt-type smt-sum-p
+  :true-listp t)
+
 (defprod smt-type
-  ((kind symbolp)
+  ((kind maybe-smt-function-p)
    (recognizer smt-function-p :default (make-smt-function))
    (fixer smt-function-p :default (make-smt-function))
-   (constructor smt-function-p :default (make-smt-function))
-   (destructors smt-function-list-p)
+   (sums smt-sum-list-p)
    (subtypes smt-sub/supertype-list-p)
    (supertypes smt-sub/supertype-list-p)))
 
@@ -96,9 +103,34 @@
   (implies (symbol-smt-type-alist-p alst)
            (maybe-smt-type-p (cdr (assoc-equal x alst)))))
 
+(defprod smt-replace
+  ((fn symbolp)
+   (formals symbol-listp)
+   (thms symbol-listp)))
+
+(deflist smt-replace-list
+  :elt-type smt-replace-p
+  :true-listp t)
+
+(defprod trans-hint
+  ((type-translation symbolp)
+   (function-translation symbolp)))
+
+(defalist symbol-trans-hint-alist
+  :key-type symbolp
+  :val-type trans-hint-p
+  :true-listp t)
+
+(defthm assoc-equal-of-symbol-trans-hint-alist
+  (implies (and (symbol-trans-hint-alist-p alst)
+                (assoc-equal x alst))
+           (and (consp (assoc-equal x alst))
+                (trans-hint-p (cdr (assoc-equal x alst))))))
+
 (defprod trusted-hint
   ((uninterpreted symbol-smt-function-alist-p)
-   (user-types symbol-smt-type-alist-p)))
+   (user-types symbol-smt-type-alist-p)
+   (user-type-fns symbol-trans-hint-alist-p)))
 
 (local (in-theory (disable symbol-listp)))
 
@@ -106,6 +138,7 @@
   :parents (SMT-hint-interface)
   ((functions smt-function-list-p :default nil)
    (types smt-type-list-p :default nil)
+   (replaces smt-replace-list-p :default nil)
    (hypotheses smt-hypo-list-p :default nil)
    (configurations smt-config-p :default (make-smt-config))
    (int-to-ratp int-to-rat-p :default (make-int-to-rat-switch :okp nil))

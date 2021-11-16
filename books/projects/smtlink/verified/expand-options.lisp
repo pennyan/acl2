@@ -58,6 +58,26 @@
      func-tl
      (construct-type-related-function func-hd acc))))
 
+(define construct-sum-related-function ((sum smt-sum-p)
+                                        (acc symbol-symbol-alistp))
+  :returns (types symbol-symbol-alistp)
+  (b* ((sum (smt-sum-fix sum))
+       (acc (symbol-symbol-alist-fix acc))
+       ((smt-sum s) sum)
+       (acc-1 (construct-type-related-function s.constructor acc)))
+    (construct-type-related-function-list s.destructors acc-1)))
+
+(define construct-sum-related-function-list ((sum-lst smt-sum-list-p)
+                                             (acc symbol-symbol-alistp))
+  :returns (types symbol-symbol-alistp)
+  :measure (len sum-lst)
+  (b* ((sum-lst (smt-sum-list-fix sum-lst))
+       (acc (symbol-symbol-alist-fix acc))
+       ((unless (consp sum-lst)) acc)
+       ((cons sum-hd sum-tl) sum-lst)
+       (acc-1 (construct-sum-related-function sum-hd acc)))
+    (construct-sum-related-function-list sum-tl acc-1)))
+
 (define construct-type-related-functions ((types smt-type-list-p)
                                           (acc symbol-symbol-alistp))
   :returns (types symbol-symbol-alistp)
@@ -71,11 +91,9 @@
                (smt-type->recognizer types-hd) acc))
        (acc-2 (construct-type-related-function
                (smt-type->fixer types-hd) acc-1))
-       (acc-3 (construct-type-related-function
-               (smt-type->constructor types-hd) acc-2))
-       (acc-4 (construct-type-related-function-list
-               (smt-type->destructors types-hd) acc-3)))
-    (construct-type-related-functions types-tl acc-4)))
+       (acc-3 (construct-sum-related-function-list
+               (smt-type->sums types-hd) acc-2)))
+    (construct-type-related-functions types-tl acc-3)))
 
 (verify-guards construct-type-related-functions)
 

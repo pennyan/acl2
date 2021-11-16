@@ -911,7 +911,7 @@
                             `(if ,(simple-transformer `(not ,ttc.term))
                                  ,ttc.path-cond 'nil))))
         (prog2$
-         (er hard? 'typed-term=>make-typed-term-if
+         (er hard? 'typed-term=>make-typed-if
              "Inconsistent inputs.~%")
          (change-typed-term (make-typed-term) :path-cond ttp.path-cond))))
     (make-typed-term

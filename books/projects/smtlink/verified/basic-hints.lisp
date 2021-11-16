@@ -21,24 +21,21 @@
                                                       '(return-of-symbolp))
                        :fixer (make-smt-function :name 'symbol-fix
                                                  :formals '(x)
-                                                 :returns '(return-of-symbol-fix)
-                                                 :replace-thms '(replace-of-symbol-fix)))
+                                                 :returns '(return-of-symbol-fix)))
         (make-smt-type :recognizer (make-smt-function :name 'booleanp
                                                       :formals '(x)
                                                       :returns
                                                       '(return-of-booleanp))
                        :fixer (make-smt-function :name 'bool-fix
                                                  :formals '(x)
-                                                 :returns '(return-of-bool-fix)
-                                                 :replace-thms '(replace-of-bool-fix)))
+                                                 :returns '(return-of-bool-fix)))
         (make-smt-type :recognizer (make-smt-function :name 'integerp
                                                       :formals '(x)
                                                       :returns
                                                       '(return-of-integerp))
                        :fixer (make-smt-function :name 'ifix
                                                  :formals '(x)
-                                                 :returns '(return-of-ifix)
-                                                 :replace-thms '(replace-of-ifix))
+                                                 :returns '(return-of-ifix))
                        :supertypes (list (make-smt-sub/supertype
                                           :type 'rationalp
                                           :formals '(x)
@@ -49,8 +46,7 @@
                                                       '(return-of-rationalp))
                        :fixer (make-smt-function :name 'rfix
                                                  :formals '(x)
-                                                 :returns '(return-of-rfix)
-                                                 :replace-thms '(replace-of-rfix)))))
+                                                 :returns '(return-of-rfix)))))
 
 (define make-basic-functions ()
   :returns (fun-lst smt-function-list-p)
@@ -88,9 +84,25 @@
                                       return-of-binary-*-integerp-rationalp))
         ))
 
+(define make-basic-replaces ()
+  :returns (replace-lst smt-replace-list-p)
+  (list (make-smt-replace :fn 'symbol-fix
+                          :formals '(x)
+                          :thms '(replace-of-symbol-fix))
+        (make-smt-replace :fn 'bool-fix
+                          :formals '(x)
+                          :thms '(replace-of-bool-fix))
+        (make-smt-replace :fn 'ifix
+                          :formals '(x)
+                          :thms '(replace-of-ifix))
+        (make-smt-replace :fn 'rfix
+                          :formals '(x)
+                          :thms '(replace-of-rfix))))
+
 (define make-basic-hints ()
   :returns (hint smtlink-hint-p)
   (make-smtlink-hint
    :types (make-basic-types)
    :functions (make-basic-functions)
+   :replaces (make-basic-replaces)
    :configurations (make-smt-config :smt-cnf (default-smt-cnf))))
