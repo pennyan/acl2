@@ -107,7 +107,7 @@ of @('x').
 
 (define conj-cons ((hd pseudo-termp) (tl conj-p))
   :short "constructor for @(see conj-p) objects"
-  :returns (conj conj-p)
+  :returns (conj conj-consp)
   `(if ,(pseudo-term-fix hd) ,(conj-fix tl) 'nil)
   ///
   (more-returns
@@ -133,7 +133,8 @@ of @('x').
 
 ; define our evaluator
 (defevaluator ev-conj ev-lst-conj
-  ((not x) (if x y z)))
+  ((not x) (if x y z))
+  :namedp t)
 
 (acl2::defrule eval-of-conj-cons
   (implies (and (pseudo-termp hd) (conj-p tl) (alistp a))
@@ -182,7 +183,7 @@ of @('x').
   (implies (and (pseudo-termp x) (alistp a))
 	   (iff (ev-conj (term-to-conj x) a)
 		(ev-conj x a)))
-  :in-theory (enable term-to-conj pseudo-conj-p)
+  :in-theory (enable term-to-conj pseudo-conj-p conj-cons)
   :induct (term-to-conj x))
 
 
