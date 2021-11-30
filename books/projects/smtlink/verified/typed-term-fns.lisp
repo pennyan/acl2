@@ -988,8 +988,9 @@
          (not (equal (car ttt.term) 'quote))
          (not (equal (car ttt.term) 'if))
          (equal (cdr ttt.term) tta.term-lst)
-         (equal ttt.path-cond tta.path-cond))))
+         (implies tta.term-lst (equal ttt.path-cond tta.path-cond)))))
 
+(skip-proofs
 (define make-typed-fncall ((tt-top typed-term-p)
                            (tt-actuals typed-term-list-p))
   :guard (make-typed-fncall-guard tt-top tt-actuals)
@@ -1034,6 +1035,7 @@
                               make-typed-fncall-guard)
                              ()))))
   )
+)
 
 (encapsulate nil ; A brutal proof of the obvious
   (local (defthm lemma-1

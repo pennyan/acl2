@@ -166,9 +166,10 @@
        ((smt-function k) kind)
        ((smt-sum s) sum)
        (type-predicate `(,r.name ,return-var))
-       (tag-predicate `(equal (,k.name ,return-var) ,s.tag))
-       ((mv equality fn-lst) (construct-construct-equal s return-var))
-       (the-hint `(:in-theory (enable ,r.name ,@fn-lst))))
+       (tag-predicate `(equal (,k.name ,return-var) ',s.tag))
+       ((mv equality &) (construct-construct-equal s return-var))
+       ;; (the-hint `(:in-theory (enable ,r.name ,@fn-lst)))
+       (the-hint `(:in-theory (enable))))
     (cons (list `(hint-please ',the-hint)
                 `(if (if ,type-predicate ,tag-predicate 'nil)
                      ,equality
@@ -196,7 +197,7 @@
        (the-hint `(:in-theory (enable))))
     (cons (list `(hint-please ',the-hint)
                 `(if ,type-predicate-lst
-                     (equal (,k.name (,c.name ,@formal-vars)) ,s.tag)
+                     (equal (,k.name (,c.name ,@formal-vars)) ',s.tag)
                    't))
           acc)))
 
@@ -251,8 +252,8 @@
        (acc (pseudo-term-list-list-fix acc))
        ((smt-function r) rec)
        (type-predicate `(,r.name ,return-var))
-       ((mv equal-lst fn-lst) (construct-construct-equal-list sum-lst return-var))
-       (the-hint `(:in-theory (enable ,@fn-lst))))
+       ((mv equal-lst &) (construct-construct-equal-list sum-lst return-var))
+       (the-hint `(:in-theory (enable))))
     (cons (list `(hint-please ',the-hint)
                 `(if ,type-predicate (exactly-one ,equal-lst) 't))
           acc)))
@@ -269,7 +270,7 @@
        ((cons sum-hd sum-tl) sum-lst)
        ((smt-sum s) sum-hd)
        ((smt-function k) kind))
-    `(cons (equal (,k.name ,return-var) ,s.tag)
+    `(cons (equal (,k.name ,return-var) ',s.tag)
            ,(construct-kind-list kind sum-tl return-var))))
 
 (define tag-of-all ((rec smt-function-p)

@@ -25,6 +25,7 @@ class ACL22SMT(object):
     class Symbol:
         # define the Z3Sym type
         z3Sym = Datatype('Symbol')
+        z3Sym.declare('kindNotFound')
         z3Sym.declare('sym', ('ival', IntSort()))
         z3Sym = z3Sym.create()
 
