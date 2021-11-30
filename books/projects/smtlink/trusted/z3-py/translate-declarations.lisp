@@ -117,18 +117,18 @@
 
 (define translate-declarations ((decl-term pseudo-termp)
                                 (types symbol-smt-type-alist-p)
-                                (syms string-listp))
+                                (symbol-map symbol-string-alistp))
   :returns (mv (translated paragraph-p)
                (smt-property pseudo-term-list-listp))
-  :guard-debug t
   (b* ((decl-term (pseudo-term-fix decl-term))
-       (syms (str::string-list-fix syms))
+       (symbol-map (symbol-string-alist-fix symbol-map))
        (decl-list (conjunction-to-list decl-term nil))
        ((mv translated-types user-type-properties)
-        (create-type-list-top types))
+        (create-type-list-top types symbol-map))
+       (- (cw "user-type-properties: ~q0" user-type-properties))
        (translated-declaration-list
         (translate-declaration-list (reverse decl-list) types))
-       (translated-syms (translate-symbol-enumeration syms)))
+       (translated-syms (translate-symbol-enumeration (strip-cdrs symbol-map))))
     (mv `(,translated-syms
           ,translated-types
           ,translated-declaration-list)
