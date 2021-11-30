@@ -92,8 +92,12 @@
        (acc-2 (construct-type-related-function
                (smt-type->fixer types-hd) acc-1))
        (acc-3 (construct-sum-related-function-list
-               (smt-type->sums types-hd) acc-2)))
-    (construct-type-related-functions types-tl acc-3)))
+               (smt-type->sums types-hd) acc-2))
+       ((unless (smt-type->kind types-hd))
+        (construct-type-related-functions types-tl acc-3)))
+    (construct-type-related-functions
+     types-tl
+     (construct-type-related-function (smt-type->kind types-hd) acc-3))))
 
 (verify-guards construct-type-related-functions)
 

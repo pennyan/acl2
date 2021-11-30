@@ -20,13 +20,11 @@
   :pred symbol-string-alistp
   :true-listp t)
 
-(local
 (defthm assoc-equal-symbol-string-alist
   (implies (and (symbol-string-alistp x)
                 (assoc y x))
            (and (consp (assoc y x))
                 (stringp (cdr (assoc y x))))))
-)
 
 (defthm string-list-of-strip-cdrs-of-symbol-string-alist
   (implies (symbol-string-alistp x)

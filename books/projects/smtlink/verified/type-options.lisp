@@ -131,8 +131,14 @@
        ((smt-function ff) tp.fixer)
        (acc-2 (acons ff.name
                      (construct-return-spec ff.formals ff.returns)
-                     acc-1)))
-    (construct-sum-function-list tp.sums acc-2)))
+                     acc-1))
+       ((unless tp.kind)
+        (construct-sum-function-list tp.sums acc-2))
+       ((smt-function kf) tp.kind))
+    (construct-sum-function-list
+     tp.sums (acons kf.name
+                    (construct-return-spec kf.formals kf.returns)
+                    acc-2))))
 
 (define construct-type-function-alist ((types smt-type-list-p)
                                        (acc symbol-thm-spec-list-alist-p))
