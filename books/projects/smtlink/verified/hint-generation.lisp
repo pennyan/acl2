@@ -179,8 +179,14 @@
        ((smt-type tp) type)
        (trans-type (smt-function->translation tp.recognizer))
        ((mv new-sums new-acc)
-        (set-sum-list tp.sums supertype trans-type fn-acc state)))
-    (mv (change-smt-type type :sums new-sums) new-acc)))
+        (set-sum-list tp.sums supertype trans-type fn-acc state))
+       ((unless tp.kind)
+        (mv (change-smt-type type :sums new-sums) new-acc))
+       ((smt-function k) tp.kind)
+       (trans-kind (make-trans-hint :type-translation nil
+                                    :function-translation k.translation)))
+    (mv (change-smt-type type :sums new-sums)
+        (acons k.name trans-kind new-acc))))
 
 (define update-user-types ((fn symbolp)
                            (types symbol-smt-type-alist-p)

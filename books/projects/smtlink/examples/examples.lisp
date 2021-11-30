@@ -92,7 +92,6 @@
    (r (implies (and (rationalp x) (integerp y)) (rationalp r))
       :name rationalp-of-bar)))
 
-(acl2::must-fail
 (defthm test4
   (implies (and (integerp x) (integerp y))
            (>= (bar (foo x y) (foo x y)) 0))
@@ -111,17 +110,11 @@
                         :formals (a b)
                         :thms (replace-of-foo-int-int-rat
                                replace-of-foo-int-int-int)))
-            ;; The hypotheses will go into conditions in if, currently
-            ;; replacement is not supported for if conditions, hence I
-            ;; temporarily comment out the hypotheses.
-            ;; Without these hypotheses, Z3 should produce a cex.
-            ;; :hypotheses ((:instance foo->=-0
-            ;;                         ((a x) (b y)))
-            ;;              (:instance bar->=-0
-            ;;                         ((x (foo x y))
-            ;;                          (y (foo x y)))))
-            ))))
-)
+            :hypotheses ((:instance foo->=-0
+                                    ((a x) (b y)))
+                         (:instance bar->=-0
+                                    ((x (foo x y))
+                                     (y (foo x y)))))))))
 
 (defprod animal
   ((furry booleanp)
@@ -269,17 +262,12 @@
 (defthmd booleanp-of-integer-list-p
   (booleanp (integer-list-p x)))
 
-(defthmd replace-of-integer-list-fix
-  (implies (integer-list-p x)
-           (equal (integer-list-fix x) x)))
-
 (defthmd return-of-equal-for-integer-list
   (implies (and (integer-list-p x)
                 (integer-list-p y))
            (booleanp (equal x y))))
 
-;; I can't test out lists because I need to be able to do replacement
-;; on the condition
+;; This one fails with one of the returned subgoal
 (defthm test6
   (implies (and (integer-list-p x) (integer-list-p y)
                 (not (equal x nil)))
@@ -326,10 +314,7 @@
                                      :translation nil
                                      :return (return-of-integer-list->nil))
                        :destructors nil))))
-            :replaces ((integer-list-fix$inline
-                        :formals (x)
-                        :thms (replace-of-integer-list-fix))
-                       (cons
+            :replaces ((cons
                         :formals (x y)
                         :thms (replace-of-integer-list->cons))
                        (car
@@ -342,6 +327,176 @@
                         :formals (x)
                         :thms (replace-of-integer-list->nil))
                        )))))
+
+(defoption maybe-rational rationalp)
+
+(defthmd booleanp-of-maybe-rational-p
+  (booleanp (maybe-rational-p x)))
+
+(define maybe-rational-nil ()
+  nil
+  ///
+  (defthmd return-of-maybe-rational-nil
+    (maybe-rational-p (maybe-rational-nil)))
+
+  (defthm replace-of-maybe-rational-nil
+    (implies (maybe-rational-p nil)
+             (equal nil (maybe-rational-nil)))
+    :rule-classes nil))
+
+(defthmd return-of-maybe-rational-some
+  (implies (rationalp x)
+           (maybe-rational-p (maybe-rational-some x))))
+
+(defthmd return-of-maybe-rational-some->val
+  (implies (maybe-rational-p x)
+           (rationalp (maybe-rational-some->val$inline x))))
+
+(defthmd maybe-rational-p-canbe-rationalp
+  (implies (and (maybe-rational-p x) (not (equal x nil)))
+           (rationalp x)))
+(defthmd maybe-rational-p-canbe-rationalp
+  (implies (and (maybe-rational-p x) (not (equal x nil)))
+           (rationalp x)))
+
+(defthmd return-of-equal-for-maybe-rational-p
+  (implies (and (maybe-rational-p x)
+                (maybe-rational-p y))
+           (booleanp (equal x y))))
+
+(defthm test7
+  (implies (and (maybe-rational-p x) (not (equal x nil)))
+           (>= (* (maybe-rational-some->val x)
+                  (maybe-rational-some->val x))
+               0))
+  :hints (("Goal"
+           :smtlink
+           (:functions ((equal
+                         :formals (x y)
+                         :return (return-of-equal-for-maybe-rational-p)))
+            :types ((maybe-rational-p
+                     :recognizer (maybe-rational-p
+                                  :translation maybeRational
+                                  :formals (x)
+                                  :return (booleanp-of-maybe-rational-p))
+                     :fixer (maybe-rational-fix$inline
+                             :formals (x)
+                             :return (maybe-rational-p-of-maybe-rational-fix))
+                     :sums
+                     ((:constructor (maybe-rational-some
+                                     :translation some
+                                     :formals (x)
+                                     :return (return-of-maybe-rational-some))
+                       :destructors ((maybe-rational-some->val$inline
+                                      :translation val
+                                      :formals (x)
+                                      :return (return-of-maybe-rational-some->val))))
+                      (:constructor (maybe-rational-nil
+                                     :translation nil
+                                     :return
+                                     (return-of-maybe-rational-nil))))
+                     :subtypes
+                     ((rationalp
+                       :formals (x)
+                       :thm maybe-rational-p-canbe-rationalp))))
+           :replaces ((nil
+                       :formals (x)
+                       :thms (replace-of-maybe-rational-nil))
+                      )))))
+
+(deftagsum food
+  (:sandwich ((layer integerp)))
+  (:dumpling ((flavor symbolp)
+              (size integerp))))
+
+(defthmd return-of-equal-for-food-p
+  (implies (and (food-p x) (food-p y))
+           (booleanp (equal x y))))
+
+(defthmd return-of-equal-for-symbolp
+  (implies (and (symbolp x) (symbolp y))
+           (booleanp (equal x y))))
+
+(defthmd booleanp-of-food-p
+  (booleanp (food-p x)))
+
+(defthmd symbolp-of-food-kind
+  (implies (food-p x)
+           (symbolp (food-kind$inline x))))
+
+(defthmd return-of-food-sandwich
+  (implies (integerp x)
+           (food-p (food-sandwich x))))
+
+(defthmd return-of-food-sandwich->layer
+  (implies (and (food-p x)
+                (equal (food-kind$inline x) :sandwich))
+           (integerp (food-sandwich->layer$inline x))))
+
+(defthmd return-of-food-dumpling
+  (implies (and (symbolp x)
+                (integerp y))
+           (food-p (food-dumpling x y))))
+
+(defthmd return-of-food-dumpling->flavor
+  (implies (and (food-p x)
+                (equal (food-kind$inline x) :dumpling))
+           (symbolp (food-dumpling->flavor$inline x))))
+
+(defthmd return-of-food-dumpling->size
+  (implies (and (food-p x)
+                (equal (food-kind$inline x) :dumpling))
+           (integerp (food-dumpling->size$inline x))))
+
+(defthm test8
+  (implies (and (food-p x) (food-p y)
+                (equal (food-kind x) :sandwich)
+                (equal (food-kind y) :dumpling))
+           (>= (+ (* (food-sandwich->layer x) (food-sandwich->layer x))
+                  (* (food-dumpling->size y) (food-dumpling->size y)))
+               0))
+  :hints (("Goal"
+           :smtlink
+           (:functions ((equal
+                         :formals (x y)
+                         :return (return-of-equal-for-food-p
+                                  return-of-equal-for-symbolp)))
+            :types ((food-p
+                     :kind (food-kind$inline
+                            :translation foodKind
+                            :formals (x)
+                            :return (symbolp-of-food-kind))
+                     :recognizer (food-p
+                                  :translation food
+                                  :formals (x)
+                                  :return (booleanp-of-food-p))
+                     :fixer (food-fix$inline
+                             :formals (x)
+                             :return (food-p-of-food-fix))
+                     :sums
+                     ((:tag :sandwich
+                       :constructor (food-sandwich
+                                     :translation sandwich
+                                     :formals (x)
+                                     :return (return-of-food-sandwich))
+                       :destructors ((food-sandwich->layer$inline
+                                      :translation layer
+                                      :formals (x)
+                                      :return (return-of-food-sandwich->layer))))
+                      (:tag :dumpling
+                       :constructor (food-dumpling
+                                     :translation dumpling
+                                     :formals (x y)
+                                     :return (return-of-food-dumpling))
+                       :destructors ((food-dumpling->flavor$inline
+                                      :translation flavor
+                                      :formals (x)
+                                      :return (return-of-food-dumpling->flavor))
+                                     (food-dumpling->size$inline
+                                      :translation size
+                                      :formals (x)
+                                      :return (return-of-food-dumpling->size)))))))
+            ))))
 
 ;; Example 1
 ;; (def-saved-event x^2-y^2

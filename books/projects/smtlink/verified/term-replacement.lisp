@@ -166,11 +166,13 @@
                             (natp clock))))
           (make-typed-term))
          ((if (zp clock)) tterm)
+         (- (cw "tterm: ~q0" tterm))
          ((replace-options ro) replace-options)
          ((type-options to) type-options)
          ((typed-term tt) tterm)
          (term1 (generate-replacement
                  tt.term tt.judgements tt.path-cond ro.replaces state))
+         (- (cw "term1: ~q0" term1))
          ((if (equal term1 tt.term))
           (change-typed-term tt :path-cond path-cond))
          (judge1 (type-judgement term1 tt.path-cond to to.names state))
@@ -225,13 +227,20 @@
                                            :term term1
                                            :path-cond path-cond
                                            :judgements tt1-judge-top))
-               ((unless (make-typed-fncall-guard tt1-top tt1-actuals)) tt))
+               ((unless (make-typed-fncall-guard tt1-top tt1-actuals))
+                (prog2$ (er hard? 'term-replacement=>replace-fncall
+                            "Guard violated (make-typed-fncall-guard tt1-top
+                             tt1-actuals): ~q0 ~q1" tt1-top tt1-actuals)
+                        tt)))
             (make-typed-fncall tt1-top tt1-actuals)))
          (judge1 (type-judgement term1 tt.path-cond to to.names state))
          (tt1 (make-typed-term :term term1
                                :path-cond path-cond
                                :judgements judge1))
-         ((unless (good-typed-term-p tt1)) tt)
+         ((unless (good-typed-term-p tt1))
+          (prog2$ (er hard? 'term-replacement=>replace-fncall
+                      "Guard violated (good-typed-term-p tt1): ~q0" tt1)
+                  tt))
          (expected (generate-judge-from-equality term1 tt-top.term
                                                  tt-top.judgements
                                                  ro.supertype))
@@ -268,6 +277,8 @@
           (mv `(if ,(simple-transformer new-ttc.term) ,path-cond 'nil)
               `(if ,(simple-transformer `(not ,new-ttc.term)) ,path-cond
                  'nil)))
+         (- (cw "then-path-cond: ~q0" then-path-cond))
+         (- (cw "else-path-cond: ~q0" else-path-cond))
          (new-then (replace-term tt-then ro type-options then-path-cond clock state))
          ((typed-term new-ttt) new-then)
          (new-else (replace-term tt-else ro type-options else-path-cond clock state))
@@ -278,7 +289,12 @@
                                                       ro.supertype))
          (new-top (change-typed-term tt-top
                                      :term new-term
-                                     :judgements new-top-judge)))
+                                     :path-cond path-cond
+                                     :judgements new-top-judge))
+         (- (cw "new-top: ~q0" new-top))
+         (- (cw "new-cond: ~q0" new-cond))
+         (- (cw "new-then: ~q0" new-then))
+         (- (cw "new-else: ~q0" new-else)))
       (make-typed-if new-top new-cond new-then new-else)))
 
   (define replace-term ((tterm typed-term-p)
@@ -297,7 +313,8 @@
                             (pseudo-termp path-cond)
                             (natp clock))))
           (make-typed-term))
-         ((if (equal (typed-term->kind tterm) 'variablep)) tterm)
+         ((if (equal (typed-term->kind tterm) 'variablep))
+          (change-typed-term tterm :path-cond path-cond))
          ((if (equal (typed-term->kind tterm) 'quotep))
           (replace-quote tterm replace-options type-options path-cond clock state))
          ((if (equal (typed-term->kind tterm) 'ifp))
