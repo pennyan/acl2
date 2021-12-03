@@ -4,14 +4,15 @@
 (include-book "std/util/define" :dir :system)
 (include-book "std/util/defrule" :dir :system)
 (include-book "centaur/fty/top" :dir :system)
+(include-book "clause-processors/meta-extract-user" :dir :system)
 (include-book "xdoc/top" :dir :system)
 
-(include-book "../utils/pseudo-term")
+(include-book "evaluator")
 
 (set-induction-depth-limit 1)
 
 (local (in-theory (disable  ;; the "worst" offenders for useless runes
-  symbol-listp rational-listp integer-listp true-list-listp member-equal
+  pseudo-termp symbol-listp rational-listp integer-listp true-list-listp member-equal
   ACL2::PSEUDO-LAMBDAP-OF-CAR-WHEN-PSEUDO-TERMP
   CONSP-OF-CDR-OF-PSEUDO-LAMBDAP
   PSEUDO-TERM-LISTP-OF-CDR-OF-PSEUDO-TERMP
@@ -131,16 +132,26 @@ of @('x').
 
 (local (in-theory (disable conj-p conj-consp)))
 
-; define our evaluator
-(defevaluator ev-conj ev-lst-conj
-  ((not x) (if x y z))
-  :namedp t)
+;; define our evaluator
+;(defevaluator ev-conj ev-lst-conj ; minimal evaluator that supports meta-extract, see :doc def-meta-extract
+;  ((typespec-check ts x)
+;   (if a b c)
+;   (equal a b)
+;   (not a)
+;   (iff a b)
+;   (implies a b))
+;  :namedp t)
+;
+;(acl2::def-ev-theoremp ev-conj)
+;(acl2::def-meta-extract ev-conj ev-conj-lst)
+;(acl2::def-unify ev-conj ev-conj-alist)
+
 
 (acl2::defrule eval-of-conj-cons
   (implies (and (pseudo-termp hd) (conj-p tl) (alistp a))
-	   (iff (ev-conj (conj-cons hd tl) a)
-		(if (ev-conj hd a)
-		  (ev-conj tl a)
+	   (iff (ev-smtcp (conj-cons hd tl) a)
+		(if (ev-smtcp hd a)
+		  (ev-smtcp tl a)
 		  nil)))
   :expand ((conj-cons hd tl)))
 
@@ -181,8 +192,8 @@ of @('x').
 
 (acl2::defrule correctness-of-term-to-conj
   (implies (and (pseudo-termp x) (alistp a))
-	   (iff (ev-conj (term-to-conj x) a)
-		(ev-conj x a)))
+	   (iff (ev-smtcp (term-to-conj x) a)
+		(ev-smtcp x a)))
   :in-theory (enable term-to-conj pseudo-conj-p conj-cons)
   :induct (term-to-conj x))
 

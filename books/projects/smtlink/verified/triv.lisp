@@ -23,41 +23,6 @@
   PSEUDO-TERMP-WHEN-CONJ-P
   TTMRG-P-OF-CAR-WHEN-TTMRG-LIST-P)))
 
-(defines pseudo-term-syntax
-  (define pseudo-term-syntax-p ((term acl2::any-p))
-    :returns (ok booleanp)
-    :flag term
-    (b* (((unless (consp term)) (symbolp term))
-	 ((cons fn args) term)
-	 ((if (equal fn 'quote))
-	  (and (consp args) (null (cdr args))))
-	 ((unless (symbolp fn)) nil)
-	 ((if (booleanp fn)) nil)
-	 ((if (and (equal fn 'if)
-		   (not (and (consp args) (consp (cdr args))
-			     (consp (cddr args)) (null (cdddr args))))))
-	  nil))
-       (pseudo-term-list-syntax-p args)))
-
-  (define pseudo-term-list-syntax-p ((args acl2::any-p))
-    :returns (ok booleanp)
-    :flag args
-    (b* (((unless (consp args)) (null args))
-	 ((cons hd tl) args))
-       (and (pseudo-term-syntax-p hd)
-	    (pseudo-term-list-syntax-p tl))))
-
-  ///
-  (defthm-pseudo-term-syntax-flag
-    (defthm pseudo-termp-when-pseudo-term-syntax-p
-      (implies (pseudo-term-syntax-p term) (pseudo-termp term))
-      :flag term)
-    (defthm pseudo-term-listp-when-pseudo-term-list-syntax-p
-      (implies (pseudo-term-list-syntax-p args) (pseudo-term-listp args))
-      :flag args)
-    :hints(("Goal" :in-theory (enable pseudo-termp pseudo-term-listp)))))
-
-
 (defines ttmrg-trivial
   (define ttmrg-trivial-p ((tterm acl2::any-p))
     :returns (ok booleanp)
@@ -196,11 +161,11 @@
   (local (defthm-make-ttmrg-trivial-flag
     (defthm ev-of-make-ttmrg-trivial->judgements
       (implies (alistp env)
-	       (ev-conj (ttmrg->judgements (make-ttmrg-trivial term)) env))
+	       (ev-smtcp (ttmrg->judgements (make-ttmrg-trivial term)) env))
       :flag term)
     (defthm ev-of-make-ttmrg-args-trivial->judgements
       (implies (alistp env)
-	       (ev-conj (ttmrg-list->judgements (make-ttmrg-args-trivial args)) env))
+	       (ev-smtcp (ttmrg-list->judgements (make-ttmrg-args-trivial args)) env))
       :flag args)
     :hints(("Goal" :in-theory (enable make-ttmrg-trivial make-ttmrg-args-trivial
 				      ttmrg-list->judgements)))))
