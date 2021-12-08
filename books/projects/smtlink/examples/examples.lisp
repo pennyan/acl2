@@ -155,7 +155,6 @@
   :hints (("Goal"
            :smtlink
            (:types ((animal-p
-                     :kind :prod
                      :recognizer (animal-p
                                   :translation animal
                                   :formals (x)
@@ -193,7 +192,7 @@
   (implies (and (integerp x) (integer-list-p y))
            (integer-list-p (cons x y))))
 
-(defthmd return-of-car-for-integer-list-1
+(defthmd return-of-car-for-integer-list
   (implies (and (integer-list-p x) (not (equal x nil)))
            (integerp (car x))))
 
@@ -203,7 +202,7 @@
 
 (define integer-list->cons ((x integerp)
                             (y integer-list-p))
-  (cons x y)
+  (cons (ifix x) (integer-list-fix y))
   ///
   (defthmd return-of-integer-list->cons
     (implies (and (integerp x) (integer-list-p y))
@@ -228,12 +227,8 @@
 (define integer-list->car ((x integer-list-p))
   (if (consp x) (car x) (ifix (car x)))
   ///
-  (defthmd return-of-integer-list->car-1
-    (implies (and (integer-list-p x) (not (equal x nil)))
-             (integerp (integer-list->car x))))
-  (defthmd return-of-integer-list->car-2
-    (implies (and (integer-list-p x)
-                  (not (equal x (integer-list->nil))))
+  (defthmd return-of-integer-list->car
+    (implies (integer-list-p x)
              (integerp (integer-list->car x))))
 
   ;; It needs to be integer-list->nil
@@ -254,11 +249,6 @@
              (equal (cdr x)
                     (integer-list->cdr x)))))
 
-(defthmd return-of-car-for-integer-list-2
-  (implies (and (integer-list-p x)
-                (not (equal x (integer-list->nil))))
-           (integerp (car x))))
-
 (defthmd booleanp-of-integer-list-p
   (booleanp (integer-list-p x)))
 
@@ -266,6 +256,27 @@
   (implies (and (integer-list-p x)
                 (integer-list-p y))
            (booleanp (equal x y))))
+
+(defthm integer-list-cons-car-cdr
+  (implies (and (integer-list-p x)
+                (not (equal x (integer-list->nil))))
+           (equal (integer-list->cons (integer-list->car x)
+                                      (integer-list->cdr x))
+                  x))
+  :hints (("Goal"
+           :in-theory (enable integer-list->nil
+                              integer-list->cons
+                              integer-list->car
+                              integer-list->cdr))))
+
+(defthm integer-list-car-cdr-cons
+  (implies (and (integerp x) (integer-list-p y))
+           (and (equal (integer-list->car (integer-list->cons x y)) x)
+                (equal (integer-list->cdr (integer-list->cons x y)) y)))
+  :hints (("Goal"
+           :in-theory (enable integer-list->cons
+                              integer-list->car
+                              integer-list->cdr))))
 
 ;; This one fails with one of the returned subgoal
 (defthm test6
@@ -280,8 +291,7 @@
                          :return (return-of-cons-for-integer-list))
                         (car
                          :formals (x)
-                         :return (return-of-car-for-integer-list-1
-                                  return-of-car-for-integer-list-2))
+                         :return (return-of-car-for-integer-list))
                         (cdr
                          :formals (x)
                          :return (return-of-cdr-for-integer-list))
@@ -293,26 +303,20 @@
                                   :translation integerList
                                   :formals (x)
                                   :return (booleanp-of-integer-list-p))
-                     :fixer (integer-list-fix$inline
-                             :formals (x)
-                             :return (integer-list-p-of-integer-list-fix))
+                     :fixer (integer-list-fix$inline)
                      :sums
                      ((:constructor (integer-list->cons
                                      :translation cons
-                                     :formals (x y)
-                                     :return (return-of-integer-list->cons))
+                                     :return-type integer-list-p)
                        :destructors ((integer-list->car
                                       :translation car
-                                      :formals (x)
-                                      :return (return-of-integer-list->car-1
-                                               return-of-integer-list->car-2))
+                                      :return-type integerp)
                                      (integer-list->cdr
                                       :translation cdr
-                                      :formals (x)
-                                      :return (return-of-integer-list->cdr))))
+                                      :return-type integer-list-p)))
                       (:constructor (integer-list->nil
                                      :translation nil
-                                     :return (return-of-integer-list->nil))
+                                     :return-type integer-list-p)
                        :destructors nil))))
             :replaces ((cons
                         :formals (x y)
@@ -355,6 +359,7 @@
 (defthmd maybe-rational-p-canbe-rationalp
   (implies (and (maybe-rational-p x) (not (equal x nil)))
            (rationalp x)))
+
 (defthmd maybe-rational-p-canbe-rationalp
   (implies (and (maybe-rational-p x) (not (equal x nil)))
            (rationalp x)))
