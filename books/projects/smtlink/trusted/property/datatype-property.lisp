@@ -70,6 +70,7 @@
   (b* ((destructors (smt-function-list-fix destructors))
        (acc (pseudo-term-list-list-fix acc))
        (return-var (symbol-fix return-var))
+       ((unless (consp destructors)) acc)
        ((smt-function f) constructor)
        (type-predicate `(,f.return-type ,return-var))
        (type-conclusions
@@ -110,6 +111,7 @@
        (destructors (smt-function-list-fix destructors))
        (formal-vars (symbol-list-fix formal-vars))
        (acc (pseudo-term-list-list-fix acc))
+       ((unless (consp destructors)) acc)
        (type-predicates (construct-type-predicate-list destructors formal-vars))
        (equal-conclusions
         (construct-destruct-equal-list constructor destructors formal-vars
@@ -309,7 +311,7 @@
        (sum-lst (smt-sum-list-fix sum-lst))
        (return-var (symbol-fix return-var))
        (acc (pseudo-term-list-list-fix acc))
-       ((unless (consp sum-lst)) nil)
+       ((unless (consp sum-lst)) acc)
        ((cons sum-hd sum-tl) sum-lst))
     (construct-sum-list rec kind sum-tl return-var
                         (construct-sum rec kind sum-hd return-var acc))))
@@ -321,7 +323,9 @@
        (acc (pseudo-term-list-list-fix acc))
        ((smt-type tp) type)
        (return-var (car (new-fresh-vars 1 nil)))
-       (acc-1 (construct-sum-list tp.recognizer tp.kind tp.sums return-var acc))
-       (acc-2 (constructor-of-destructors tp.recognizer tp.sums return-var acc-1))
+       (acc-1
+        (construct-sum-list tp.recognizer tp.kind tp.sums return-var acc))
+       (acc-2
+        (constructor-of-destructors tp.recognizer tp.sums return-var acc-1))
        ((unless tp.kind) acc-2))
     (tag-of-all tp.recognizer tp.kind tp.sums return-var acc-2)))

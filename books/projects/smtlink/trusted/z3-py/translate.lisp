@@ -166,7 +166,6 @@
        ((smtlink-hint h) (smtlink-hint-fix smtlink-hint))
        ((trusted-hint th) h.trusted-hint)
        (- (cw "theorem-body: ~q0" theorem-body))
-       (- (cw "avoid-syms: ~q0" avoid-syms))
        ((mv translated-body sym-keeper)
         (translate-theorem theorem-body
                            h
@@ -176,7 +175,7 @@
        (- (cw "decl-list: ~q0" decl-list))
        ((symbol-keeper s) sym-keeper)
        ((mv translated-decl decl-properties)
-        (translate-declarations decl-list th.user-types s.symbol-map))
+        (translate-declarations decl-list th.user-types s))
        (- (cw "translated-decl: ~q0" translated-decl))
        ((mv translated-uninterpreted uninterpreted-properties)
         (translate-uninterpreted th.uninterpreted th.user-types))
