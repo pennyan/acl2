@@ -20,127 +20,266 @@
 (include-book "type-inference-topdown")
 (include-book "replace-options")
 
-(local (in-theory (disable (:executable-counterpart typed-term)
-                           pseudo-termp pseudo-term-listp)))
+(define fncallp ((x pseudo-termp))
+  :returns (okp booleanp)
+  (and (consp x)
+       (symbolp (car x))
+       (not (equal (car x) 'quote))))
 
-(define replace-with-spec ((term pseudo-termp)
-                           (judgements pseudo-termp)
-                           (path-cond pseudo-termp)
-                           (replace-spec thm-spec-p)
-                           state)
-  :guard (or (and (consp term)
-                  (symbolp (car term))
-                  (not (equal (car term) 'quote)))
-             (quotep term))
-  :returns (new-term pseudo-termp)
-  (b* (((unless (mbt (and (pseudo-termp term)
-                          (pseudo-termp judgements)
-                          (pseudo-termp path-cond)
-                          (thm-spec-p replace-spec)
-                          (or (and (consp term)
-                                   (symbolp (car term))
-                                   (not (equal (car term) 'quote)))
-                              (quotep term)))))
+(local (in-theory (e/d (fncallp)
+                       ((:executable-counterpart typed-term)
+                        pseudo-termp pseudo-term-listp))))
+
+;; RUTs:
+;; (implies (and (cond1 arg1) ...)
+;;          (equal (f-user arg1 ...)
+;;                 (f-smt arg1 arg2 ...)))
+;; (implies (and (cond1 arg1) (cond2 arg1))
+;;          (equal (f-fix arg1) arg1))
+;; (implies (some-type-p nil)
+;;          (equal nil (some-type-nil)))
+
+(define rut ((term pseudo-termp))
+  :returns (rut-lst pseudo-term-listp)
+  (b* ((term (pseudo-term-fix term))
+       ((unless (fncallp term)) (list term))
+       ((cons & actuals) term))
+    (cons term actuals)))
+
+(define fncall-rut-p ((lhs pseudo-termp)
+                      (rhs pseudo-termp))
+  :returns (okp booleanp)
+  (b* ((lhs (pseudo-term-fix lhs))
+       (rhs (pseudo-term-fix rhs)))
+    (and (fncallp rhs)
+         (subsetp-equal (cdr rhs) (rut lhs)))))
+
+(define non-fncall-rut-p ((lhs pseudo-termp)
+                          (rhs pseudo-termp))
+  :returns (okp booleanp)
+  (b* ((lhs (pseudo-term-fix lhs))
+       (rhs (pseudo-term-fix rhs)))
+    (consp (member-equal rhs (rut lhs)))))
+
+(define rut-p ((lhs pseudo-termp)
+               (rhs pseudo-termp))
+  :returns (okp booleanp)
+  (b* ((lhs (pseudo-term-fix lhs))
+       (rhs (pseudo-term-fix rhs)))
+    (or (fncall-rut-p lhs rhs)
+        (non-fncall-rut-p lhs rhs))))
+
+(define make-term-list-judge-alist ((tterm-lst typed-term-list-p))
+  :guard (good-typed-term-list-p tterm-lst)
+  :returns (judge-alst pseudo-term-alistp)
+  :verify-guards nil
+  (b* (((unless (mbt (and (typed-term-list-p tterm-lst)
+                          (good-typed-term-list-p tterm-lst))))
         nil)
-       (fn (if (quotep term) nil (car term)))
-       (actuals (if (quotep term) nil (cdr term)))
+       ((unless (consp tterm-lst)) nil)
+       ((cons tterm-hd tterm-tl) tterm-lst)
+       ((typed-term tt) tterm-hd))
+    (acons tt.term tt.judgements (make-term-list-judge-alist tterm-tl))))
+
+(verify-guards make-term-list-judge-alist)
+
+(define rut-actual-judgements ((tterm typed-term-p))
+  :guard (and (good-typed-term-p tterm)
+              (or (equal (typed-term->kind tterm) 'fncallp)
+                  (equal (typed-term->kind tterm) 'quotep)))
+  :returns (actual-alst pseudo-term-alistp)
+  (b* (((unless (mbt (and (typed-term-p tterm)
+                          (good-typed-term-p tterm)
+                          (or (equal (typed-term->kind tterm) 'fncallp)
+                              (equal (typed-term->kind tterm) 'quotep)))))
+        nil)
+       ((if (equal (typed-term->kind tterm) 'quotep)) nil)
+       ((typed-term tt) tterm)
+       (tt-actuals (typed-term-fncall->actuals tt)))
+    (make-term-list-judge-alist tt-actuals)))
+
+(local
+ (defthm crock
+   (implies (and (pseudo-term-alistp x) (assoc-equal y x))
+            (pseudo-termp (cdr (assoc-equal y x)))))
+ )
+
+(define update-actual-judgements ((actual-lst pseudo-term-listp)
+                                  (actual-alst pseudo-term-alistp))
+  :returns (new-judges pseudo-termp)
+  :measure (len actual-lst)
+  (b* ((actual-lst (pseudo-term-list-fix actual-lst))
+       (actual-alst (pseudo-term-alist-fix actual-alst))
+       ((unless (consp actual-lst)) ''t)
+       ((cons actual-hd actual-tl) actual-lst)
+       (exists? (assoc-equal actual-hd actual-alst))
+       ((unless exists?)
+        (er hard? 'term-replacement=>update-actual-judgements
+            "Actual ~p0 doesn't exist in alist ~p1~%"
+            actual-hd actual-alst)))
+    `(if ,(cdr exists?)
+         ,(update-actual-judgements actual-tl actual-alst)
+       'nil)))
+
+(skip-proofs
+(define update-judgements ((tterm typed-term-p)
+                           (new-term pseudo-termp)
+                           (supertype-alst type-to-types-alist-p))
+  :guard (and (good-typed-term-p tterm)
+              (or (equal (typed-term->kind tterm) 'fncallp)
+                  (equal (typed-term->kind tterm) 'quotep))
+              (rut-p (typed-term->term tterm) new-term))
+  :returns (new-tterm good-typed-term-p)
+  (b* (((unless (mbt (and (typed-term-p tterm)
+                          (good-typed-term-p tterm)
+                          (pseudo-termp new-term)
+                          (type-to-types-alist-p supertype-alst)
+                          (or (equal (typed-term->kind tterm) 'fncallp)
+                              (equal (typed-term->kind tterm) 'quotep))
+                          (rut-p (typed-term->term tterm) new-term))))
+        (make-typed-term))
+       ((typed-term tt) tterm)
+       ((if (equal (typed-term->kind tterm) 'quotep))
+        (change-typed-term
+         tt
+         :term new-term
+         :judgements (generate-judge-from-equality
+                      new-term tt.term tt.judgements supertype-alst)))
+       ((typed-term ttt) (typed-term->top tt))
+       ;; Make an alist that maps terms to their judgements
+       ;; Terms include all ruts terms including the term and its actuals
+       (actual-alst (rut-actual-judgements tterm))
+       (top-judge (generate-judge-from-equality new-term tt.term ttt.judgements
+                                                supertype-alst))
+       ((if (non-fncall-rut-p tt.term new-term))
+        (b* ((exists? (assoc-equal new-term actual-alst))
+             ((unless exists?)
+              (prog2$ (er hard? 'term-replacement=>update-judgements
+                          "Actual ~p0 doesn't exist in alist ~p1~%"
+                          new-term actual-alst)
+                      (make-typed-term))))
+          (change-typed-term tt :term new-term :judgements (cdr exists?))))
+       ((cons & actuals) tt.term)
+       (actual-judges (update-actual-judgements actuals actual-alst))
+       (all-judge `(if ,top-judge ,actual-judges 'nil)))
+    (change-typed-term tt :term new-term :judgements all-judge)))
+)
+
+(define replace-with-spec ((tterm good-typed-term-p)
+                           (replace-spec thm-spec-p)
+                           (supertype-alst type-to-types-alist-p)
+                           state)
+  :guard (or (equal (typed-term->kind tterm) 'fncallp)
+             (equal (typed-term->kind tterm) 'quotep))
+  :returns (new-tterm good-typed-term-p)
+  (b* (((unless (mbt (and (good-typed-term-p tterm)
+                          (thm-spec-p replace-spec)
+                          (type-to-types-alist-p supertype-alst)
+                          (or (equal (typed-term->kind tterm) 'fncallp)
+                              (equal (typed-term->kind tterm) 'quotep)))))
+        (make-typed-term))
+       ((typed-term tt) tterm)
+       (fn (if (quotep tt.term) nil (car tt.term)))
+       (actuals (if (quotep tt.term) nil (cdr tt.term)))
        (substed-theorem (get-substed-theorem replace-spec actuals state))
        ((mv ok hypo concl)
         (get-hypotheses-and-conclusion substed-theorem fn actuals))
        ((unless ok)
         (prog2$ (er hard? 'term-replacement=>replace-with-spec
-                    "Malformed returns theorem ~p0.~%" substed-theorem)
-                term))
-       (ok1 (path-test-list `(if ,judgements ,path-cond 'nil) hypo))
-       ((unless ok1) term)
+                    "Malformed replacement theorem ~p0.~%" substed-theorem)
+                tt))
+       (judgements (if (equal (typed-term->kind tterm) 'fncallp)
+                       `(if ,(typed-term->judgements (typed-term->top tt))
+                            ,(typed-term-list->judgements
+                              (typed-term-fncall->actuals tt))
+                          'nil)
+                     tt.judgements))
+       (ok1 (path-test-list `(if ,judgements ,tt.path-cond 'nil) hypo))
+       ((unless ok1) tterm)
        ((mv ok2 rhs)
         (case-match concl
-          (('equal !term rhs) (mv t rhs))
+          (('equal !tt.term rhs) (mv t rhs))
           (& (mv nil nil))))
-       ((unless ok2)
+       ((unless (and ok2 (rut-p tt.term rhs)))
         (prog2$ (er hard? 'term-replacement=>replace-with-spec
-                    "Malformed conclusion ~p0.~%" concl)
-                term)))
-    rhs))
+                    "Malformed replacement rhs ~p0.~%" concl)
+                tt)))
+    (update-judgements tt rhs supertype-alst)))
 
-(define generate-replacement-loop ((term pseudo-termp)
-                                   (judgements pseudo-termp)
-                                   (path-cond pseudo-termp)
+(define generate-replacement-loop ((tterm good-typed-term-p)
                                    (replace-specs thm-spec-list-p)
+                                   (supertype-alst type-to-types-alist-p)
                                    state)
-  :guard (or (and (consp term)
-                  (symbolp (car term))
-                  (not (equal (car term) 'quote)))
-             (quotep term))
-  :returns (new-term pseudo-termp)
-  (b* (((unless (mbt (and (pseudo-termp term)
-                          (pseudo-termp judgements)
-                          (pseudo-termp path-cond)
+  :guard (or (equal (typed-term->kind tterm) 'fncallp)
+             (equal (typed-term->kind tterm) 'quotep))
+  :returns (new-tterm good-typed-term-p)
+  (b* (((unless (mbt (and (good-typed-term-p tterm)
                           (thm-spec-list-p replace-specs)
-                          (or (and (consp term)
-                                   (symbolp (car term))
-                                   (not (equal (car term) 'quote)))
-                              (quotep term)))))
-        (pseudo-term-fix term))
-       ((unless (consp replace-specs)) term)
+                          (type-to-types-alist-p supertype-alst)
+                          (or (equal (typed-term->kind tterm) 'fncallp)
+                              (equal (typed-term->kind tterm) 'quotep)))))
+        (make-typed-term))
+       ((unless (consp replace-specs)) tterm)
        ((cons replace-hd replace-tl) replace-specs)
-       (new-term
-        (replace-with-spec term judgements path-cond replace-hd state))
-       ((unless (equal new-term term)) new-term))
-    (generate-replacement-loop term judgements path-cond replace-tl state)))
+       (new-tterm (replace-with-spec tterm replace-hd supertype-alst state))
+       ((unless (equal new-tterm tterm)) new-tterm))
+    (generate-replacement-loop tterm replace-tl supertype-alst state)))
 
-(define generate-replacement ((term pseudo-termp)
-                              (judgements pseudo-termp)
-                              (path-cond pseudo-termp)
+(skip-proofs
+(define generate-replacement ((tterm good-typed-term-p)
                               (replaces symbol-thm-spec-list-alist-p)
+                              (supertype-alst type-to-types-alist-p)
                               state)
-  :guard (or (and (consp term)
-                  (symbolp (car term))
-                  (not (equal (car term) 'quote)))
-             (quotep term))
-  :returns (new-term pseudo-termp)
-  (b* (((unless (mbt (and (pseudo-termp term)
-                          (pseudo-termp judgements)
-                          (pseudo-termp path-cond)
+  :guard (or (equal (typed-term->kind tterm) 'fncallp)
+             (equal (typed-term->kind tterm) 'quotep))
+  :returns (new-tterm good-typed-term-p)
+  (b* (((unless (mbt (and (good-typed-term-p tterm)
                           (symbol-thm-spec-list-alist-p replaces)
-                          (or (and (consp term)
-                                   (symbolp (car term))
-                                   (not (equal (car term) 'quote)))
-                              (quotep term)))))
-        (pseudo-term-fix term))
-       ((cons fn &) term)
-       ;; currently only supports replaces for symbols
-       (exists? (if (and (quotep term) (or (not (cdr term)) (consp (cdr term))))
-                    (assoc-equal (cadr term) replaces)
-                  (assoc-equal fn replaces)))
-       ((unless exists?) term))
-    (generate-replacement-loop term judgements path-cond (cdr exists?) state)))
+                          (type-to-types-alist-p supertype-alst)
+                          (or (equal (typed-term->kind tterm) 'fncallp)
+                              (equal (typed-term->kind tterm) 'quotep)))))
+        (make-typed-term))
+       ((typed-term tt) tterm)
+       ((if (equal (typed-term->kind tterm) 'quotep))
+        (b* ((exists? (assoc-equal (cadr tt.term) replaces))
+             ((unless exists?) tt))
+          (generate-replacement-loop tt (cdr exists?) supertype-alst state)))
+       ((cons fn &) tt.term)
+       ;; currently only support replaces for symbols and function calls
+       (exists? (assoc-equal fn replaces))
+       ((unless exists?) tt))
+    (generate-replacement-loop tterm (cdr exists?) supertype-alst state)))
+)
 
 (skip-proofs
 (defthm correctness-of-generate-replacement
   (implies (and (ev-smtcp-meta-extract-global-facts)
-                (pseudo-termp term)
-                (or (and (consp term)
-                         (symbolp (car term))
-                         (not (equal (car term) 'quote)))
-                    (quotep term))
-                (pseudo-termp judgements)
-                (pseudo-termp path-cond)
+                (good-typed-term-p tterm)
                 (symbol-thm-spec-list-alist-p replaces)
+                (type-to-types-alist-p supertype-alst)
                 (alistp a)
-                (ev-smtcp judgements a)
-                (ev-smtcp path-cond a))
-           (equal
-            (ev-smtcp term a)
-            (ev-smtcp (generate-replacement term judgements path-cond replaces state)
-                      a))))
+                (ev-smtcp (correct-typed-term term) a))
+           (ev-smtcp (correct-typed-term
+                      (generate-replacement tterm replaces
+                                            supertype-alst state))
+                     a)))
 )
+
+;; Support we have a replacement theorem statement:
+;; (implies (and (cond1 arg1) …)
+;;          (equal term-user term-smt))
+;; Let reusable-user-terms (RUTs) be the set {term-user, arguments to the
+;; top-level function call of term-user}.
+;; We require that either term-smt is an element of RUTs, or term-smt is a
+;; function call where each argument to the top-level function call of term-smt is
+;; an element of RUTs. 
+;; If the replacement satisfies these requirements, then you can construct the
+;; typed-term for term-smt from the typed-terms of the elements of RUTs.
 
 (skip-proofs
 (defines replace-term
   :well-founded-relation l<
   :flag-local nil
-  :verify-guards nil
   :returns-hints (("Goal"
                    :in-theory (e/d (good-typed-term-list-p)
                                    (pseudo-termp
@@ -148,52 +287,15 @@
                                     lambda-of-pseudo-lambdap
                                     symbol-listp))))
 
-  (define replace-quote ((tterm typed-term-p)
-                         (replace-options replace-options-p)
-                         (type-options type-options-p)
-                         (path-cond pseudo-termp)
-                         (clock natp)
-                         state)
+  (define replace-rut ((tterm typed-term-p)
+                       (replace-options replace-options-p)
+                       (type-options type-options-p)
+                       (path-cond pseudo-termp)
+                       (clock natp)
+                       state)
     :guard (and (good-typed-term-p tterm)
-                (equal (typed-term->kind tterm) 'quotep))
-    :returns (new-tt good-typed-term-p)
-    :measure (list (nfix clock) (acl2-count (typed-term->term tterm)) 0)
-    (b* (((unless (mbt (and (typed-term-p tterm)
-                            (replace-options-p replace-options)
-                            (type-options-p type-options)
-                            (equal (typed-term->kind tterm) 'quotep)
-                            (good-typed-term-p tterm)
-                            (natp clock))))
-          (make-typed-term))
-         ((if (zp clock)) tterm)
-         (- (cw "tterm: ~q0" tterm))
-         ((replace-options ro) replace-options)
-         ((type-options to) type-options)
-         ((typed-term tt) tterm)
-         (term1 (generate-replacement
-                 tt.term tt.judgements tt.path-cond ro.replaces state))
-         (- (cw "term1: ~q0" term1))
-         ((if (equal term1 tt.term))
-          (change-typed-term tt :path-cond path-cond))
-         (judge1 (type-judgement term1 tt.path-cond to to.names state))
-         (tt1 (make-typed-term :term term1
-                               :path-cond path-cond
-                               :judgements judge1))
-         ((unless (good-typed-term-p tt1)) tt)
-         (expected (generate-judge-from-equality term1 tt.term
-                                                 tt.judgements
-                                                 ro.supertype))
-         (tt1-unified (unify-type tt1 expected to state)))
-      (replace-term tt1-unified ro to path-cond (1- clock) state)))
-
-  (define replace-fncall ((tterm typed-term-p)
-                          (replace-options replace-options-p)
-                          (type-options type-options-p)
-                          (path-cond pseudo-termp)
-                          (clock natp)
-                          state)
-    :guard (and (good-typed-term-p tterm)
-                (equal (typed-term->kind tterm) 'fncallp))
+                (or (equal (typed-term->kind tterm) 'fncallp)
+                    (equal (typed-term->kind tterm) 'quotep)))
     :returns (new-tt good-typed-term-p)
     :measure (list (nfix clock) (acl2-count (typed-term->term tterm)) 0)
     (b* (((unless (mbt (and (typed-term-p tterm)
@@ -207,15 +309,15 @@
          ((replace-options ro) replace-options)
          ((type-options to) type-options)
          ((typed-term tt) tterm)
-         ((typed-term tt-top) (typed-term->top tt))
-         (tt-actuals (typed-term-fncall->actuals tt))
-         (tta.judgements (typed-term-list->judgements tt-actuals))
-         (term1 (generate-replacement
-                 tt.term
-                 `(if ,tta.judgements ,tt-top.judgements 'nil)
-                 tt.path-cond ro.replaces state))
-         ((if (equal term1 tt.term))
-          (b* (((cons fn &) tt.term)
+         (new-tterm (generate-replacement tt ro.replaces to.supertype state))
+         ((if (and (equal new-tterm tt)
+                   (equal (typed-term->kind tt) 'quotep)))
+          (change-typed-term tt :path-cond path-cond))
+         ((if (and (equal new-tterm tt)
+                   (equal (typed-term->kind tt) 'fncallp)))
+          (b* ((tt-actuals (typed-term-fncall->actuals tt))
+               ((typed-term tt-top) (typed-term->top tt))
+               ((cons fn &) tt.term)
                (tt1-actuals
                 (replace-term-list tt-actuals ro to path-cond clock state))
                (tt1a.term-lst (typed-term-list->term-lst tt1-actuals))
@@ -227,25 +329,10 @@
                                            :term term1
                                            :path-cond path-cond
                                            :judgements tt1-judge-top))
-               ((unless (make-typed-fncall-guard tt1-top tt1-actuals))
-                (prog2$ (er hard? 'term-replacement=>replace-fncall
-                            "Guard violated (make-typed-fncall-guard tt1-top
-                             tt1-actuals): ~q0 ~q1" tt1-top tt1-actuals)
-                        tt)))
-            (make-typed-fncall tt1-top tt1-actuals)))
-         (judge1 (type-judgement term1 tt.path-cond to to.names state))
-         (tt1 (make-typed-term :term term1
-                               :path-cond path-cond
-                               :judgements judge1))
-         ((unless (good-typed-term-p tt1))
-          (prog2$ (er hard? 'term-replacement=>replace-fncall
-                      "Guard violated (good-typed-term-p tt1): ~q0" tt1)
-                  tt))
-         (expected (generate-judge-from-equality term1 tt-top.term
-                                                 tt-top.judgements
-                                                 ro.supertype))
-         (tt1-unified (unify-type tt1 expected to state)))
-      (replace-term tt1-unified ro to path-cond (1- clock) state)))
+               ((unless (make-typed-fncall-guard tt1-top tt1-actuals)) tt))
+            (make-typed-fncall tt1-top tt1-actuals))))
+      (replace-term (change-typed-term new-tterm :path-cond path-cond)
+                    ro to path-cond (1- clock) state)))
 
   (define replace-if ((tterm typed-term-p)
                       (replace-options replace-options-p)
@@ -277,8 +364,6 @@
           (mv `(if ,(simple-transformer new-ttc.term) ,path-cond 'nil)
               `(if ,(simple-transformer `(not ,new-ttc.term)) ,path-cond
                  'nil)))
-         (- (cw "then-path-cond: ~q0" then-path-cond))
-         (- (cw "else-path-cond: ~q0" else-path-cond))
          (new-then (replace-term tt-then ro type-options then-path-cond clock state))
          ((typed-term new-ttt) new-then)
          (new-else (replace-term tt-else ro type-options else-path-cond clock state))
@@ -290,11 +375,7 @@
          (new-top (change-typed-term tt-top
                                      :term new-term
                                      :path-cond path-cond
-                                     :judgements new-top-judge))
-         (- (cw "new-top: ~q0" new-top))
-         (- (cw "new-cond: ~q0" new-cond))
-         (- (cw "new-then: ~q0" new-then))
-         (- (cw "new-else: ~q0" new-else)))
+                                     :judgements new-top-judge)))
       (make-typed-if new-top new-cond new-then new-else)))
 
   (define replace-term ((tterm typed-term-p)
@@ -315,12 +396,13 @@
           (make-typed-term))
          ((if (equal (typed-term->kind tterm) 'variablep))
           (change-typed-term tterm :path-cond path-cond))
-         ((if (equal (typed-term->kind tterm) 'quotep))
-          (replace-quote tterm replace-options type-options path-cond clock state))
          ((if (equal (typed-term->kind tterm) 'ifp))
-          (replace-if tterm replace-options type-options path-cond clock state))
-         ((if (equal (typed-term->kind tterm) 'fncallp))
-          (replace-fncall tterm replace-options type-options path-cond clock state)))
+          (replace-if tterm replace-options type-options path-cond clock
+                      state))
+         ((if (or (equal (typed-term->kind tterm) 'quotep)
+                  (equal (typed-term->kind tterm) 'fncallp)))
+          (replace-rut tterm replace-options type-options path-cond clock
+                       state)))
       (prog2$ (er hard? 'term-replacement=>replace-term
                   "Found lambda term in goal.~%")
               tterm)))
@@ -353,26 +435,16 @@
           tterm-lst))
       (cons tt-car tt-cdr)))
   ///
-  (defthm typed-term-of-replace-quote
-    (typed-term-p (replace-quote tterm replace-options type-options
-                                 path-cond clock state))
+  (defthm typed-term-of-replace-rut
+    (typed-term-p (replace-rut tterm replace-options type-options
+                               path-cond clock state))
     :hints (("Goal"
              :in-theory (disable good-typed-term-implies-typed-term)
              :use ((:instance good-typed-term-implies-typed-term
                               (tterm
-                               (replace-quote tterm replace-options 
-                                              type-options path-cond
-                                              clock state)))))))
-  (defthm typed-term-of-replace-fncall
-    (typed-term-p (replace-fncall tterm replace-options type-options
-                                  path-cond clock state))
-    :hints (("Goal"
-             :in-theory (disable good-typed-term-implies-typed-term)
-             :use ((:instance good-typed-term-implies-typed-term
-                              (tterm
-                               (replace-fncall tterm replace-options 
-                                               type-options path-cond
-                                               clock state)))))))
+                               (replace-rut tterm replace-options 
+                                            type-options path-cond
+                                            clock state)))))))
   (defthm typed-term-of-replace-if
     (typed-term-p (replace-if tterm replace-options type-options path-cond
                               clock state))
@@ -405,8 +477,6 @@
   )
 )
 
-(verify-guards replace-term)
-
 (skip-proofs
 (defthm-replace-term-flag
   (defthm replace-if-maintains-path-cond
@@ -427,7 +497,7 @@
                               :expand (replace-if tterm replace-options
                                                   type-options path-cond
                                                   clock state)))))
-  (defthm replace-fncall-maintains-path-cond
+  (defthm replace-rut-maintains-path-cond
     (implies (and (replace-options-p replace-options)
                   (type-options-p type-options)
                   (equal (typed-term->kind tterm) 'fncallp)
@@ -435,36 +505,17 @@
                   (pseudo-termp path-cond)
                   (natp clock))
              (equal (typed-term->path-cond
-                     (replace-fncall tterm replace-options type-options
-                                     path-cond clock state))
+                     (replace-rut tterm replace-options type-options
+                                  path-cond clock state))
                     (typed-term->path-cond tterm)))
-    :flag replace-fncall
+    :flag replace-rut
     :hints ((and stable-under-simplificationp
                  '(:in-theory (e/d ()
                                    (pseudo-termp symbol-listp))
-                   :expand ((replace-fncall tterm replace-options type-options
-                                            path-cond clock state)
-                            (replace-fncall tterm replace-options type-options
-                                            path-cond 0 state))))))
-  (defthm replace-quote-maintains-path-cond
-    (implies (and (replace-options-p replace-options)
-                  (type-options-p type-options)
-                  (equal (typed-term->kind tterm) 'quotep)
-                  (good-typed-term-p tterm)
-                  (pseudo-termp path-cond)
-                  (natp clock))
-             (equal (typed-term->path-cond
-                     (replace-quote tterm replace-options type-options
-                                    path-cond clock state))
-                    (typed-term->path-cond tterm)))
-    :flag replace-quote
-    :hints ((and stable-under-simplificationp
-                 '(:in-theory (e/d ()
-                                   (pseudo-termp symbol-listp))
-                   :expand ((replace-quote tterm replace-options type-options
-                                            path-cond clock state)
-                            (replace-quote tterm replace-options type-options
-                                            path-cond 0 state))))))
+                   :expand ((replace-rut tterm replace-options type-options
+                                         path-cond clock state)
+                            (replace-rut tterm replace-options type-options
+                                         path-cond 0 state))))))
   (defthm replace-term-maintains-path-cond
     (implies (and (replace-options-p replace-options)
                   (type-options-p type-options)
@@ -528,7 +579,7 @@
                               :expand (replace-if tterm replace-options
                                                   type-options path-cond
                                                   clock state)))))
-  (defthm replace-fncall-maintains-term
+  (defthm replace-rut-maintains-term
     (implies (and (ev-smtcp-meta-extract-global-facts)
                   (replace-options-p replace-options)
                   (type-options-p type-options)
@@ -540,42 +591,18 @@
                   (ev-smtcp (typed-term->path-cond tterm) a)
                   (ev-smtcp (typed-term->judgements tterm) a))
              (equal (ev-smtcp (typed-term->term
-                               (replace-fncall tterm replace-options
-                                               type-options path-cond clock
-                                               state))
+                               (replace-rut tterm replace-options
+                                            type-options path-cond clock
+                                            state))
                               a)
                     (ev-smtcp (typed-term->term tterm) a)))
-    :flag replace-fncall
+    :flag replace-rut
     :hints ((and stable-under-simplificationp
                  '(:in-theory (e/d () ())
-                   :expand ((replace-fncall tterm replace-options type-options
-                                            path-cond clock state)
-                            (replace-fncall tterm replace-options type-options
-                                            path-cond 0 state))))))
-  (defthm replace-quote-maintains-term
-    (implies (and (ev-smtcp-meta-extract-global-facts)
-                  (replace-options-p replace-options)
-                  (type-options-p type-options)
-                  (equal (typed-term->kind tterm) 'quotep)
-                  (good-typed-term-p tterm)
-                  (pseudo-termp path-cond)
-                  (natp clock)
-                  (alistp a)
-                  (ev-smtcp (typed-term->path-cond tterm) a)
-                  (ev-smtcp (typed-term->judgements tterm) a))
-             (equal (ev-smtcp (typed-term->term
-                               (replace-quote tterm replace-options
-                                              type-options path-cond clock
-                                              state))
-                              a)
-                    (ev-smtcp (typed-term->term tterm) a)))
-    :flag replace-quote
-    :hints ((and stable-under-simplificationp
-                 '(:in-theory (e/d () ())
-                   :expand ((replace-quote tterm replace-options type-options
-                                            path-cond clock state)
-                            (replace-quote tterm replace-options type-options
-                                            path-cond 0 state))))))
+                   :expand ((replace-rut tterm replace-options type-options
+                                         path-cond clock state)
+                            (replace-rut tterm replace-options type-options
+                                         path-cond 0 state))))))
   (defthm replace-term-maintains-term
     (implies (and (ev-smtcp-meta-extract-global-facts)
                   (replace-options-p replace-options)
@@ -647,7 +674,7 @@
                               :expand (replace-if tterm replace-options
                                                   type-options path-cond
                                                   clock state)))))
-  (defthm correctness-of-replace-fncall
+  (defthm correctness-of-replace-rut
     (implies (and (ev-smtcp-meta-extract-global-facts)
                   (replace-options-p replace-options)
                   (type-options-p type-options)
@@ -658,49 +685,20 @@
                   (alistp a)
                   (ev-smtcp (correct-typed-term tterm) a))
              (ev-smtcp (correct-typed-term
-                        (replace-fncall tterm replace-options type-options
-                                        path-cond clock state))
+                        (replace-rut tterm replace-options type-options
+                                     path-cond clock state))
                        a))
-    :flag replace-fncall
+    :flag replace-rut
     :hints ((and stable-under-simplificationp
                  '(:in-theory (e/d (correct-typed-term make-typed-fncall)
                                    (pseudo-termp
                                     symbol-listp))
-                              :expand ((replace-fncall tterm replace-options
-                                                       type-options
-                                                       path-cond clock
-                                                       state)
-                                       (replace-fncall tterm replace-options
-                                                       type-options
-                                                       path-cond 0
-                                                       state))))))
-  (defthm correctness-of-replace-quote
-    (implies (and (ev-smtcp-meta-extract-global-facts)
-                  (replace-options-p replace-options)
-                  (type-options-p type-options)
-                  (equal (typed-term->kind tterm) 'quote)
-                  (good-typed-term-p tterm)
-                  (pseudo-termp path-cond)
-                  (natp clock)
-                  (alistp a)
-                  (ev-smtcp (correct-typed-term tterm) a))
-             (ev-smtcp (correct-typed-term
-                        (replace-quote tterm replace-options type-options
-                                       path-cond clock state))
-                       a))
-    :flag replace-quote
-    :hints ((and stable-under-simplificationp
-                 '(:in-theory (e/d (correct-typed-term)
-                                   (pseudo-termp
-                                    symbol-listp))
-                              :expand ((replace-quote tterm replace-options
-                                                      type-options
-                                                      path-cond clock
-                                                      state)
-                                       (replace-quote tterm replace-options
-                                                      type-options
-                                                      path-cond 0
-                                                      state))))))
+                              :expand ((replace-rut tterm replace-options
+                                                    type-options path-cond
+                                                    clock state)
+                                       (replace-rut tterm replace-options
+                                                    type-options path-cond 0
+                                                    state))))))
   (defthm correctness-of-replace-term
     (implies (and (ev-smtcp-meta-extract-global-facts)
                   (replace-options-p replace-options)

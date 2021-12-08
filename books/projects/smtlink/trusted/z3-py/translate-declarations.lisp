@@ -107,6 +107,35 @@
     `(,datatype-line
       ,@declarations)))
 
+(define extend-symbol-map ((sum-lst smt-sum-list-p)
+                           (symbol-keeper symbol-keeper-p))
+  :returns (new-symbol-keeper symbol-keeper-p)
+  :measure (len sum-lst)
+  (b* ((sum-lst (smt-sum-list-fix sum-lst))
+       (symbol-keeper (symbol-keeper-fix symbol-keeper))
+       ((symbol-keeper sk) symbol-keeper)
+       ((unless (consp sum-lst)) symbol-keeper)
+       ((cons sum-hd sum-tl) sum-lst)
+       ((smt-sum s) sum-hd)
+       ((if (assoc-equal s.tag sk.symbol-map))
+        (extend-symbol-map sum-tl symbol-keeper))
+       ((mv & new-symbol-keeper) (translate-symbol s.tag sk)))
+    (extend-symbol-map sum-tl new-symbol-keeper)))
+
+(define extend-symbol-map-list ((types symbol-smt-type-alist-p)
+                                (symbol-keeper symbol-keeper-p))
+  :returns (new-symbol-keeper symbol-keeper-p)
+  :measure (len types)
+  :hints (("Goal" :in-theory (enable symbol-smt-type-alist-fix)))
+  (b* ((types (symbol-smt-type-alist-fix types))
+       (symbol-keeper (symbol-keeper-fix symbol-keeper))
+       ((unless (consp types)) symbol-keeper)
+       ((cons types-hd types-tl) types)
+       ((cons & type) types-hd)
+       ((smt-type tp) type)
+       (symbol-keeper-1 (extend-symbol-map tp.sums symbol-keeper)))
+    (extend-symbol-map-list types-tl symbol-keeper-1)))
+
 (local 
  (defthm pseudo-term-list-of-reverse
    (implies (pseudo-term-listp x)
@@ -117,18 +146,20 @@
 
 (define translate-declarations ((decl-term pseudo-termp)
                                 (types symbol-smt-type-alist-p)
-                                (symbol-map symbol-string-alistp))
+                                (symbol-keeper symbol-keeper-p))
   :returns (mv (translated paragraph-p)
                (smt-property pseudo-term-list-listp))
   (b* ((decl-term (pseudo-term-fix decl-term))
-       (symbol-map (symbol-string-alist-fix symbol-map))
+       (symbol-keeper (symbol-keeper-fix symbol-keeper))
        (decl-list (conjunction-to-list decl-term nil))
+       (new-symbol-keeper (extend-symbol-map-list types symbol-keeper))
+       ((symbol-keeper sk) new-symbol-keeper)
        ((mv translated-types user-type-properties)
-        (create-type-list-top types symbol-map))
-       (- (cw "user-type-properties: ~q0" user-type-properties))
+        (create-type-list-top types sk.symbol-map))
        (translated-declaration-list
         (translate-declaration-list (reverse decl-list) types))
-       (translated-syms (translate-symbol-enumeration (strip-cdrs symbol-map))))
+       (translated-syms
+        (translate-symbol-enumeration (strip-cdrs sk.symbol-map))))
     (mv `(,translated-syms
           ,translated-types
           ,translated-declaration-list)
