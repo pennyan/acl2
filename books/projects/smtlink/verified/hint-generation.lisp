@@ -73,6 +73,11 @@
        (trans-type (symbol-fix trans-type))
        (fn-acc (symbol-trans-hint-alist-fix fn-acc))
        ((smt-function f) function)
+       (trans-hint (make-trans-hint
+                    :type-translation trans-type
+                    :function-translation f.translation))
+       ((if f.return-type)
+        (mv function (acons f.name trans-hint fn-acc)))
        ((unless (>= (len f.returns) 1))
         (prog2$ (er hard? 'hint-generation=>set-function-return-type
                     "Missing return type for function ~q0" f.name)
@@ -95,10 +100,7 @@
        ((unless (and okp (symbolp type) (assoc-equal type supertype)))
         (prog2$ (er hard? 'hint-generation=>set-function-return-type
                     "Malformed returns theorem: ~q0" return-thm-expanded)
-                (mv f fn-acc)))
-       (trans-hint (make-trans-hint
-                    :type-translation trans-type
-                    :function-translation f.translation)))
+                (mv f fn-acc))))
     (mv (change-smt-function function :return-type type)
         (acons f.name trans-hint fn-acc))))
 

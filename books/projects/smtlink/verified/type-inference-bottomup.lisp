@@ -526,8 +526,7 @@
        ((if (null next-cp)) (value (list cl)))
        (the-hint
         `(:clause-processor (,next-cp clause ',smtlink-hint state)))
-       (hinted-goal `((hint-please ',the-hint) ,new-cl))
-       (- (cw "type-judge-bottomup-cp: ~q0" hinted-goal)))
+       (hinted-goal `((hint-please ',the-hint) ,new-cl)))
     (value (list hinted-goal))))
 
 (defthm correctness-of-type-judge-bottomup-cp
