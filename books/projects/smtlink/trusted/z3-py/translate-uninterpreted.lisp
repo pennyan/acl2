@@ -22,8 +22,9 @@
   :returns (property pseudo-term-listp)
   (b* ((name (symbol-fix name))
        (hints (smt-function-fix hints))
-       ((smt-function h) hints))
-    (uninterpreted-property name h.formal-types h.return-type)))
+       ((smt-function h) hints)
+       ((trans-hint th) h.translation-hint))
+    (uninterpreted-property name th.formal-types th.return-type)))
 
 (define translate-uninterpreted-arguments ((types symbol-listp)
                                            (type-alst symbol-smt-type-alist-p))
@@ -45,10 +46,11 @@
        (hints (smt-function-fix hints))
        (types (symbol-smt-type-alist-fix types))
        ((smt-function h) hints)
+       ((trans-hint th) h.translation-hint)
        (translated-formals
-        (translate-uninterpreted-arguments h.formal-types types))
+        (translate-uninterpreted-arguments th.formal-types types))
        (translated-returns
-        (translate-uninterpreted-arguments (list h.return-type) types)))
+        (translate-uninterpreted-arguments (list th.return-type) types)))
     `(,(translate-variable name) "= z3.Function("
       #\' ,name #\' ,translated-formals ,translated-returns
       ")" #\Newline)))

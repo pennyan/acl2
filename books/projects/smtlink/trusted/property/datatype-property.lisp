@@ -24,8 +24,9 @@
        ((unless (and (consp destructors) (consp formal-vars))) ''t)
        ((cons des-hd des-tl) destructors)
        ((smt-function d) des-hd)
+       ((trans-hint th) d.translation-hint)
        ((cons formal-hd formal-tl) formal-vars))
-    `(if (,d.return-type ,formal-hd)
+    `(if (,th.return-type ,formal-hd)
          ,(construct-type-predicate-list des-tl formal-tl)
        'nil)))
 
@@ -37,8 +38,9 @@
        (return-var (symbol-fix return-var))
        ((unless (consp destructors)) ''t)
        ((cons des-hd des-tl) destructors)
-       ((smt-function d) des-hd))
-    `(if (,d.return-type (,d.name ,return-var))
+       ((smt-function d) des-hd)
+       ((trans-hint th) d.translation-hint))
+    `(if (,th.return-type (,d.name ,return-var))
          ,(construct-type-conclusion-list des-tl return-var)
        'nil)))
 
@@ -51,12 +53,13 @@
        (acc (pseudo-term-list-list-fix acc))
        (formal-vars (symbol-list-fix formal-vars))
        ((smt-function f) constructor)
+       ((trans-hint th) f.translation-hint)
        (type-predicates
         (construct-type-predicate-list destructors formal-vars))
        ((if (equal f.name 'quote))
         (er hard? 'datatype-property=>construct-type-of-constructor
             "Function name should not be 'quote.~%"))
-       (type-conclusion `(,f.return-type (,f.name ,@formal-vars)))
+       (type-conclusion `(,th.return-type (,f.name ,@formal-vars)))
        (the-hint `(:in-theory (enable))))
     (cons (list `(hint-please ',the-hint)
                 `(if ,type-predicates ,type-conclusion 't))
@@ -72,7 +75,8 @@
        (return-var (symbol-fix return-var))
        ((unless (consp destructors)) acc)
        ((smt-function f) constructor)
-       (type-predicate `(,f.return-type ,return-var))
+       ((trans-hint th) f.translation-hint)
+       (type-predicate `(,th.return-type ,return-var))
        (type-conclusions
         (construct-type-conclusion-list destructors return-var))
        (the-hint `(:in-theory (enable))))
