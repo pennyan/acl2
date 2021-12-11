@@ -869,13 +869,24 @@
     (b* ((fun-opt-lst (function-option-syntax-fix fun-opt-lst))
          (smt-func (smt-function-fix smt-func))
          ((unless (consp fun-opt-lst)) smt-func)
+         ((smt-function f) smt-func)
          ((list* option content rest) fun-opt-lst)
          (new-smt-func
           (case option
-            (:translation (change-smt-function smt-func :translation content))
+            (:translation
+             (change-smt-function smt-func
+                                  :translation-hint
+                                  (change-trans-hint f.translation-hint
+                                                     :function-translation
+                                                     content)))
             (:formals (change-smt-function smt-func :formals content))
             (:return (change-smt-function smt-func :returns content))
-            (:return-type (change-smt-function smt-func :return-type content))
+            (:return-type
+             (change-smt-function smt-func
+                                  :translation-hint
+                                  (change-trans-hint f.translation-hint
+                                                     :return-type
+                                                     content)))
             (:uninterpreted-hints (change-smt-function smt-func
                                                        :uninterpreted-hints content))
             (:depth (change-smt-function smt-func :depth content)))))

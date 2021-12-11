@@ -27,7 +27,8 @@
        ((if basic?) (cdr basic?))
        ((unless type-info) (translate-variable type)))
     (translate-variable
-     (smt-function->translation (smt-type->recognizer type-info))))
+     (trans-hint->function-translation
+      (smt-function->translation-hint (smt-type->recognizer type-info)))))
   ///
   (more-returns
    (translated (paragraph-p translated)
@@ -37,9 +38,10 @@
                            (type smt-type-p))
   :returns (translated paragraph-p)
   (b* ((destructor (smt-function-fix destructor))
-       ((smt-function f) destructor))
-    `("('" ,(translate-variable f.translation) "', "
-      ,(translate-type f.return-type type) ")")))
+       ((smt-function f) destructor)
+       ((trans-hint th) f.translation-hint))
+    `("('" ,(translate-variable th.function-translation) "', "
+      ,(translate-type th.return-type type) ")")))
 
 (define create-destructors ((destructors smt-function-list-p)
                             (type smt-type-p))
@@ -58,7 +60,9 @@
   (b* (((smt-type tp) (smt-type-fix type))
        ((smt-sum s) (smt-sum-fix sum))
        (name (translate-type (smt-function->name tp.recognizer) type))
-       (constructor (translate-variable (smt-function->translation s.constructor)))
+       (trans-name (trans-hint->function-translation
+                    (smt-function->translation-hint s.constructor)))
+       (constructor (translate-variable trans-name))
        (translated-destructors (create-destructors s.destructors type)))
     `(,name ".declare( '" ,constructor
             "'" ,translated-destructors " )" #\Newline)))
@@ -87,11 +91,13 @@
   (b* ((recognizer (smt-function-fix recognizer))
        (destructors (smt-function-list-fix destructors))
        ((smt-function r) recognizer)
+       ((trans-hint rth) r.translation-hint)
        ((unless (consp destructors)) nil)
        ((cons des-hd des-tl) destructors)
-       ((smt-function d) des-hd))
-    (cons `(,(translate-variable r.translation) "."
-            ,(translate-variable d.translation) "(x), ")
+       ((smt-function d) des-hd)
+       ((trans-hint dth) d.translation-hint))
+    (cons `(,(translate-variable rth.function-translation) "."
+            ,(translate-variable dth.function-translation) "(x), ")
           (translate-kind-sum recognizer des-tl))))
 
 (define translate-kind-body ((rec smt-function-p)
@@ -106,14 +112,16 @@
        ((cons sum-hd sum-tl) sum-lst)
        ((smt-sum s) sum-hd)
        ((smt-function c) s.constructor)
+       ((trans-hint cth) c.translation-hint)
        ((smt-function r) rec)
+       ((trans-hint rth) r.translation-hint)
        (tag-trans (cdr (assoc-equal s.tag symbol-map)))
        ((unless tag-trans)
         (er hard? 'translate-user-type=>translate-kind-body
             "Tag doesn't exist in symbol map: ~p0 ~p1~%" s.tag symbol-map))
        (trans-tl (translate-kind-body rec sum-tl symbol-map)))
-    `("If(x == " ,(translate-variable r.translation) "."
-      ,(translate-variable c.translation)
+    `("If(x == " ,(translate-variable rth.function-translation) "."
+      ,(translate-variable cth.function-translation)
       "(" ,(translate-kind-sum r s.destructors) "), "
       ,tag-trans ", "
       ,trans-tl ")" )))
@@ -128,7 +136,8 @@
        (sum-lst (smt-sum-list-fix sum-lst))
        (symbol-map (symbol-string-alist-fix symbol-map))
        ((smt-function k) kind)
-       (first-line `("def " ,(translate-variable k.translation)
+       ((trans-hint kth) k.translation-hint)
+       (first-line `("def " ,(translate-variable kth.function-translation)
                      "(x): return "))
        (kind-body (translate-kind-body rec sum-lst symbol-map)))
     `(,first-line ,kind-body #\Newline)))
@@ -160,9 +169,10 @@
        ((unless (consp types)) nil)
        ((cons t-hd t-tl) types)
        ((cons & tp) t-hd)
-       (translated-name
-        (translate-variable
-         (smt-function->translation (smt-type->recognizer tp))))
+       (trans-sym (trans-hint->function-translation
+                   (smt-function->translation-hint
+                    (smt-type->recognizer tp))))
+       (translated-name (translate-variable trans-sym))
        (names-tl (create-datatypes t-tl)))
     (cons `(,translated-name ", ") names-tl)))
 
