@@ -20,14 +20,18 @@
 
 (local (in-theory (disable pseudo-termp pseudo-term-listp)))
 
+(defprod trans-hint
+  ((type-translation symbolp)
+   (function-translation symbolp)
+   (formal-types symbol-listp)
+   (return-type symbolp)))
+
 (defprod smt-function
   :parents (smtlink-hint)
   ((name symbolp :default nil)
-   (translation symbolp :default nil)
    (formals symbol-listp :default nil)
-   (formal-types symbol-listp :default nil)
    (returns symbol-listp :default nil)
-   (return-type symbolp :default nil)
+   (translation-hint trans-hint-p :default (make-trans-hint))
    (uninterpreted-hints true-listp :default nil)
    (depth natp :default 0)))
 
@@ -112,10 +116,6 @@
   :elt-type smt-replace-p
   :true-listp t)
 
-(defprod trans-hint
-  ((type-translation symbolp)
-   (function-translation symbolp)))
-
 (defalist symbol-trans-hint-alist
   :key-type symbolp
   :val-type trans-hint-p
@@ -128,9 +128,8 @@
                 (trans-hint-p (cdr (assoc-equal x alst))))))
 
 (defprod trusted-hint
-  ((uninterpreted symbol-smt-function-alist-p)
-   (user-types symbol-smt-type-alist-p)
-   (user-type-fns symbol-trans-hint-alist-p)))
+  ((user-fns symbol-smt-function-alist-p)
+   (user-types symbol-smt-type-alist-p)))
 
 (local (in-theory (disable symbol-listp)))
 
