@@ -24,7 +24,8 @@
   ((type-translation symbolp)
    (function-translation symbolp)
    (formal-types symbol-listp)
-   (return-type symbolp)))
+   (return-type symbolp)
+   (kind symbolp)))
 
 (defprod smt-function
   :parents (smtlink-hint)
@@ -98,6 +99,12 @@
   :val-type smt-function-p
   :true-listp t)
 
+(defthm assoc-equal-of-symbol-smt-function-alist
+  (implies (and (symbol-smt-function-alist-p alst)
+                (assoc-equal x alst))
+           (and (consp (assoc-equal x alst))
+                (smt-function-p (cdr (assoc-equal x alst))))))
+
 (defalist symbol-smt-type-alist
   :key-type symbolp
   :val-type smt-type-p
@@ -128,7 +135,7 @@
                 (trans-hint-p (cdr (assoc-equal x alst))))))
 
 (defprod trusted-hint
-  ((user-fns symbol-smt-function-alist-p)
+  ((user-fns symbol-trans-hint-alist-p)
    (user-types symbol-smt-type-alist-p)))
 
 (local (in-theory (disable symbol-listp)))

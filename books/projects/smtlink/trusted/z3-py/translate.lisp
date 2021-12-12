@@ -31,12 +31,12 @@
   (b* ((fn (symbol-fix fn))
        (trusted-hint (trusted-hint-fix trusted-hint))
        ((trusted-hint th) trusted-hint)
-       (exists? (assoc-equal fn th.user-type-fns))
+       (exists? (assoc-equal fn th.user-fns))
        ((unless exists?) (mv (translate-variable fn) nil))
        ((trans-hint h) (cdr exists?))
        (type-trans h.type-translation)
        (func-trans h.function-translation)
-       ((if (null type-trans))
+       ((unless type-trans)
         (mv (translate-variable func-trans) t)))
     (mv `(,(translate-variable type-trans) "."
           ,(translate-variable func-trans))
@@ -158,7 +158,7 @@
            (mv t decl-list theorem-body))
           (& (mv nil nil nil))))
        ((unless okp)
-        (prog2$ 
+        (prog2$
          (er hard? 'translate=>SMT-translation
              "Term is ill-formed and cannot be translated: ~q0"
              term)
@@ -174,11 +174,12 @@
                                                :avoid-list avoid-syms)))
        (- (cw "decl-list: ~q0" decl-list))
        ((symbol-keeper s) sym-keeper)
+       (- (cw "symbol-keeper: ~q0" s))
        ((mv translated-decl decl-properties)
         (translate-declarations decl-list th.user-types s))
        (- (cw "translated-decl: ~q0" translated-decl))
        ((mv translated-uninterpreted uninterpreted-properties)
-        (translate-uninterpreted th.uninterpreted th.user-types))
+        (translate-uninterpreted th.user-fns th.user-types))
        (pretty-translated-body (pretty-print-theorem translated-body 80))
        (translation `(,translated-decl
                       ,translated-uninterpreted

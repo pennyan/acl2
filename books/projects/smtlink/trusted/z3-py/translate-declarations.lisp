@@ -125,7 +125,7 @@
 (define extend-symbol-map-list ((types symbol-smt-type-alist-p)
                                 (symbol-keeper symbol-keeper-p))
   :returns (new-symbol-keeper symbol-keeper-p)
-  :measure (len types)
+  :measure (len (symbol-smt-type-alist-fix types))
   :hints (("Goal" :in-theory (enable symbol-smt-type-alist-fix)))
   (b* ((types (symbol-smt-type-alist-fix types))
        (symbol-keeper (symbol-keeper-fix symbol-keeper))
@@ -133,10 +133,11 @@
        ((cons types-hd types-tl) types)
        ((cons & type) types-hd)
        ((smt-type tp) type)
+       ((unless tp.kind) symbol-keeper)
        (symbol-keeper-1 (extend-symbol-map tp.sums symbol-keeper)))
     (extend-symbol-map-list types-tl symbol-keeper-1)))
 
-(local 
+(local
  (defthm pseudo-term-list-of-reverse
    (implies (pseudo-term-listp x)
             (pseudo-term-listp (reverse x)))
