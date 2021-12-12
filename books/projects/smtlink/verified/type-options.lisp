@@ -23,25 +23,6 @@
            (and (consp (assoc-equal x alst))
                 (smt-sub/supertype-list-p (cdr (assoc-equal x alst))))))
 
-(defprod thm-spec
-  ((formals symbol-listp)
-   (thm symbolp)))
-
-(deflist thm-spec-list
-  :elt-type thm-spec-p
-  :true-listp t)
-
-(defalist symbol-thm-spec-list-alist
-  :key-type symbolp
-  :val-type thm-spec-list-p
-  :true-listp t)
-
-(defthm assoc-equal-of-symbol-thm-spec-list-alist
-  (implies (and (symbol-thm-spec-list-alist-p alst)
-                (assoc-equal x alst))
-           (and (consp (assoc-equal x alst))
-                (thm-spec-list-p (cdr (assoc-equal x alst))))))
-
 (defprod type-options
   ((supertype type-to-types-alist-p)
    (subtype type-to-types-alist-p)
@@ -68,17 +49,6 @@
     (mv (acons (smt-function->name tp.recognizer) tp.subtypes subtype-tl)
         (acons (smt-function->name tp.recognizer) tp.supertypes supertype-tl))))
 
-(define construct-return-spec ((formals symbol-listp)
-                               (return-lst symbol-listp))
-  :returns (return-spec-lst thm-spec-list-p)
-  :measure (len return-lst)
-  (b* ((formals (symbol-list-fix formals))
-       (return-lst (symbol-list-fix return-lst))
-       ((unless (consp return-lst)) nil)
-       ((cons return-hd return-tl) return-lst))
-    (cons (make-thm-spec :formals formals :thm return-hd)
-          (construct-return-spec formals return-tl))))
-
 (define construct-function-alist ((funcs smt-function-list-p)
                                   (acc symbol-thm-spec-list-alist-p))
   :returns (func-alst symbol-thm-spec-list-alist-p)
@@ -90,10 +60,7 @@
        ((smt-function f) f-hd)
        ((if (assoc-equal f.name acc))
         (construct-function-alist f-tl acc)))
-    (construct-function-alist f-tl
-                              (acons f.name
-                                     (construct-return-spec f.formals f.returns)
-                                     acc))))
+    (construct-function-alist f-tl (acons f.name f.returns acc))))
 
 (define construct-sum-function ((sum smt-sum-p)
                                 (acc symbol-thm-spec-list-alist-p))
@@ -103,9 +70,7 @@
        ((smt-sum s) sum)
        (acc-1 (construct-function-alist s.destructors acc))
        ((smt-function cf) s.constructor))
-    (acons cf.name
-           (construct-return-spec cf.formals cf.returns)
-           acc-1)))
+    (acons cf.name cf.returns acc-1)))
 
 (define construct-sum-function-list ((sum-lst smt-sum-list-p)
                                      (acc symbol-thm-spec-list-alist-p))
@@ -125,20 +90,14 @@
        (acc (symbol-thm-spec-list-alist-fix acc))
        ((smt-type tp) type)
        ((smt-function rf) tp.recognizer)
-       (acc-1 (acons rf.name
-                     (construct-return-spec rf.formals rf.returns)
-                     acc))
+       (acc-1 (acons rf.name rf.returns acc))
        ((smt-function ff) tp.fixer)
-       (acc-2 (acons ff.name
-                     (construct-return-spec ff.formals ff.returns)
-                     acc-1))
+       (acc-2 (acons ff.name ff.returns acc-1))
        ((unless tp.kind)
         (construct-sum-function-list tp.sums acc-2))
        ((smt-function kf) tp.kind))
     (construct-sum-function-list
-     tp.sums (acons kf.name
-                    (construct-return-spec kf.formals kf.returns)
-                    acc-2))))
+     tp.sums (acons kf.name kf.returns acc-2))))
 
 (define construct-type-function-alist ((types smt-type-list-p)
                                        (acc symbol-thm-spec-list-alist-p))
