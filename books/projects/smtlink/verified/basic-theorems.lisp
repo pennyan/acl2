@@ -45,8 +45,21 @@
                 (booleanp y))
            (booleanp (implies x y))))
 
-(defthm return-of-equal
-  (booleanp (equal x y)))
+(defthm return-of-equal-booleanp
+  (implies (and (booleanp x) (booleanp y))
+           (booleanp (equal x y))))
+
+(defthm return-of-equal-integerp
+  (implies (and (integerp x) (integerp y))
+           (booleanp (equal x y))))
+
+(defthm return-of-equal-rationalp
+  (implies (and (rationalp x) (rationalp y))
+           (booleanp (equal x y))))
+
+(defthm return-of-equal-symbolp
+  (implies (and (symbolp x) (symbolp y))
+           (booleanp (equal x y))))
 
 (defthm return-of-<-rationalp
   (implies (and (rationalp x) (rationalp y))

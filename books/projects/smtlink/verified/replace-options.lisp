@@ -16,17 +16,6 @@
   ((supertype type-to-types-alist-p)
    (replaces symbol-thm-spec-list-alist-p)))
 
-(define construct-replace-spec ((formals symbol-listp)
-                                (replace-lst symbol-listp))
-  :returns (replace-spec-lst thm-spec-list-p)
-  :measure (len replace-lst)
-  (b* ((formals (symbol-list-fix formals))
-       (replace-lst (symbol-list-fix replace-lst))
-       ((unless (consp replace-lst)) nil)
-       ((cons replace-hd replace-tl) replace-lst))
-    (cons (make-thm-spec :formals formals :thm replace-hd)
-          (construct-replace-spec formals replace-tl))))
-
 (define construct-replace-alist ((replace-lst smt-replace-list-p)
                                  (acc symbol-thm-spec-list-alist-p))
   :returns (replace-alst symbol-thm-spec-list-alist-p)
@@ -38,7 +27,7 @@
        ((smt-replace r) rep-hd)
        (exists? (assoc-equal r.fn acc))
        ((if exists?) (construct-replace-alist rep-tl acc))
-       (new-acc (acons r.fn (construct-replace-spec r.formals r.thms) acc)))
+       (new-acc (acons r.fn r.thms acc)))
     (construct-replace-alist rep-tl new-acc)))
 
 (define construct-replace-options ((hints smtlink-hint-p))

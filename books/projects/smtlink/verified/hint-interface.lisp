@@ -20,6 +20,25 @@
 
 (local (in-theory (disable pseudo-termp pseudo-term-listp)))
 
+(defprod thm-spec
+  ((formals symbol-listp)
+   (thm-name symbolp)))
+
+(deflist thm-spec-list
+  :elt-type thm-spec-p
+  :true-listp t)
+
+(defalist symbol-thm-spec-list-alist
+  :key-type symbolp
+  :val-type thm-spec-list-p
+  :true-listp t)
+
+(defthm assoc-equal-of-symbol-thm-spec-list-alist
+  (implies (and (symbol-thm-spec-list-alist-p alst)
+                (assoc-equal x alst))
+           (and (consp (assoc-equal x alst))
+                (thm-spec-list-p (cdr (assoc-equal x alst))))))
+
 (defprod trans-hint
   ((type-translation symbolp)
    (function-translation symbolp)
@@ -30,8 +49,7 @@
 (defprod smt-function
   :parents (smtlink-hint)
   ((name symbolp :default nil)
-   (formals symbol-listp :default nil)
-   (returns symbol-listp :default nil)
+   (returns thm-spec-list-p :default nil)
    (translation-hint trans-hint-p :default (make-trans-hint))
    (uninterpreted-hints true-listp :default nil)
    (depth natp :default 0)))
@@ -63,8 +81,7 @@
 
 (defprod smt-sub/supertype
   ((type symbolp)
-   (formals symbol-listp)
-   (thm symbolp)))
+   (thm thm-spec-p :default (make-thm-spec))))
 
 (deflist smt-sub/supertype-list
   :elt-type smt-sub/supertype-p
@@ -116,8 +133,7 @@
 
 (defprod smt-replace
   ((fn symbolp)
-   (formals symbol-listp)
-   (thms symbol-listp)))
+   (thms thm-spec-list-p)))
 
 (deflist smt-replace-list
   :elt-type smt-replace-p

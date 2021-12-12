@@ -84,7 +84,7 @@
         (prog2$ (er hard? 'hint-generation=>set-function-return-type
                     "Missing return type for function ~q0" f.name)
                 (mv f fn-acc)))
-       (return-name (car f.returns))
+       (return-name (thm-spec->thm-name (car f.returns)))
        (return-thm
         (acl2::meta-extract-formula-w return-name (w state)))
        ((unless (and return-thm (pseudo-termp return-thm)))
