@@ -73,11 +73,13 @@
        (trans-type (symbol-fix trans-type))
        (fn-acc (symbol-trans-hint-alist-fix fn-acc))
        ((smt-function f) function)
-       (trans-hint (make-trans-hint
+       (trans-hint (change-trans-hint f.translation-hint
                     :type-translation trans-type
-                    :function-translation f.translation))
-       ((if f.return-type)
-        (mv function (acons f.name trans-hint fn-acc)))
+                    :kind :type))
+       ((if (trans-hint->return-type f.translation-hint))
+        (mv (change-smt-function function
+                                 :translation-hint trans-hint)
+            (acons f.name trans-hint fn-acc)))
        ((unless (>= (len f.returns) 1))
         (prog2$ (er hard? 'hint-generation=>set-function-return-type
                     "Missing return type for function ~q0" f.name)
@@ -100,17 +102,19 @@
        ((unless (and okp (symbolp type) (assoc-equal type supertype)))
         (prog2$ (er hard? 'hint-generation=>set-function-return-type
                     "Malformed returns theorem: ~q0" return-thm-expanded)
-                (mv f fn-acc))))
-    (mv (change-smt-function function :return-type type)
-        (acons f.name trans-hint fn-acc))))
+                (mv f fn-acc)))
+       (new-trans-hint (change-trans-hint trans-hint :return-type type)))
+    (mv (change-smt-function function
+                             :translation-hint new-trans-hint)
+        (acons f.name new-trans-hint fn-acc))))
 
 (define set-function-return-type-list ((functions smt-function-list-p)
                                        (supertype type-to-types-alist-p)
                                        (trans-type symbolp)
                                        (fn-acc symbol-trans-hint-alist-p)
                                        state)
-  :returns (mv (new-des-lst smt-function-list-p)
-               (new-acc symbol-trans-hint-alist-p))
+  :returns  (mv (new-des-lst smt-function-list-p)
+                (new-acc symbol-trans-hint-alist-p))
   :measure (len functions)
   (b* ((functions (smt-function-list-fix functions))
        (supertype (type-to-types-alist-fix supertype))
@@ -154,7 +158,7 @@
                       (trans-type symbolp)
                       (fn-acc symbol-trans-hint-alist-p)
                       state)
-  :returns (mv (new-sums smt-sum-list-p)
+  :returns (mv (new-sum-lst smt-sum-list-p)
                (new-acc symbol-trans-hint-alist-p))
   :measure (len sum-lst)
   (b* ((sum-lst (smt-sum-list-fix sum-lst))
@@ -179,15 +183,19 @@
        (supertype (type-to-types-alist-fix supertype))
        (fn-acc (symbol-trans-hint-alist-fix fn-acc))
        ((smt-type tp) type)
-       (trans-type (smt-function->translation tp.recognizer))
+       (trans-type (trans-hint->function-translation
+                    (smt-function->translation-hint tp.recognizer)))
        ((mv new-sums new-acc)
         (set-sum-list tp.sums supertype trans-type fn-acc state))
        ((unless tp.kind)
         (mv (change-smt-type type :sums new-sums) new-acc))
        ((smt-function k) tp.kind)
-       (trans-kind (make-trans-hint :type-translation nil
-                                    :function-translation k.translation)))
-    (mv (change-smt-type type :sums new-sums)
+       ((trans-hint th) k.translation-hint)
+       (trans-kind (change-trans-hint th :kind :type)))
+    (mv (change-smt-type
+         type
+         :sums new-sums
+         :kind (change-smt-function k :translation-hint trans-kind))
         (acons k.name trans-kind new-acc))))
 
 (define update-user-types ((fn symbolp)
@@ -204,11 +212,15 @@
        (exists? (assoc-equal fn types))
        ((unless exists?) acc)
        ((if (assoc-equal fn th.user-types)) acc)
+       ((smt-type tp) (cdr exists?))
        ((mv new-tp new-user-type-fns)
-        (set-types (cdr exists?) supertype th.user-type-fns state)))
+        (set-types tp supertype th.user-fns state))
+       (new-user-types
+        (acons (smt-function->name tp.recognizer) new-tp
+               (trusted-hint->user-types acc))))
     (change-trusted-hint acc
-                         :user-types (acons fn new-tp th.user-types)
-                         :user-type-fns new-user-type-fns)))
+                         :user-fns new-user-type-fns
+                         :user-types new-user-types)))
 
 (defines hint-generation
   :well-founded-relation l<
@@ -243,18 +255,21 @@
            state))
          (exists? (assoc-equal fn ho.function))
          ((unless exists?) acc)
-         ((if (assoc-equal fn th.uninterpreted)) acc)
+         ((if (assoc-equal fn th.user-fns)) acc)
          (func (cdr exists?))
          (return-type (get-type tterm ho.supertype))
          (formal-types (get-type-list tta ho.supertype))
-         (uninterpreted (change-smt-function func
-                                             :formal-types formal-types
-                                             :return-type return-type)))
+         (uninterpreted-hint (change-trans-hint
+                              (smt-function->translation-hint func)
+                              :function-translation fn
+                              :formal-types formal-types
+                              :return-type return-type
+                              :kind :uninterpreted)))
       (hint-generation-list
        tta ho
        (change-trusted-hint acc
-                            :uninterpreted
-                            (acons fn uninterpreted th.uninterpreted))
+                            :user-fns
+                            (acons fn uninterpreted-hint th.user-fns))
        state)))
 
   (define if-hint-generation ((tterm typed-term-p)
