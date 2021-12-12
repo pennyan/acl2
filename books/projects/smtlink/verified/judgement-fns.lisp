@@ -905,14 +905,13 @@ state)
                                      (type-alst type-to-types-alist-p)
                                      (path-cond pseudo-termp)
                                      state)
-  :ignore-ok t
   :returns (super/subtype-judge pseudo-termp)
-  :guard-hints (("Goal"
-                 :in-theory (enable pseudo-termp)))
+  :guard-hints (("Goal" :in-theory (enable pseudo-termp)))
   (b* ((type-judge (pseudo-term-fix type-judge))
        ((smt-sub/supertype tu) (smt-sub/supertype-fix type-tuple))
        (path-cond (pseudo-term-fix path-cond))
-       (type-thm (acl2::meta-extract-formula-w tu.thm (w state)))
+       (type-thm
+        (acl2::meta-extract-formula-w (thm-spec->thm-name tu.thm) (w state)))
        ((unless (and type-thm (pseudo-termp type-thm)))
         (prog2$
          (er hard? 'judgement-fns=>construct-one-super/subtype
@@ -926,15 +925,16 @@ state)
               calculate super/subtype for it.~%"
              type-judge)
          ''t))
-       ((list root-type term) type-judge)
-       ((unless (equal (len tu.formals) 1))
+       ((list & term) type-judge)
+       (formals (thm-spec->formals tu.thm))
+       ((unless (equal (len formals) 1))
         (prog2$
          (er hard? 'judgement-fns=>construct-one-super/subtype
              "The number of free variables in the type theorem must be one, ~
-              but we find ~p0~%" tu.formals)
+              but we find ~p0~%" formals)
          ''t))
        (substed-thm
-        (acl2::substitute-into-term type-thm `((,(car tu.formals) . ,term))))
+        (acl2::substitute-into-term type-thm `((,(car formals) . ,term))))
        ((unless (pseudo-termp substed-thm))
         (prog2$
          (er hard? 'judgement-fns=>construct-one-super/subtype
@@ -1019,21 +1019,25 @@ state)
                             (path-cond `(if ,type-judge ,path-cond 'nil))
                             (expr-conj (cadr (acl2::substitute-into-term
                                               (meta-extract-formula
-                                               (smt-sub/supertype->thm type-tuple)
+                                               (thm-spec->thm-name
+                                                (smt-sub/supertype->thm type-tuple))
                                                state)
                                               (list
                                                (cons
-                                                (car (smt-sub/supertype->formals type-tuple))
+                                                (car (thm-spec->formals
+                                                      (smt-sub/supertype->thm type-tuple)))
                                                 (cadr type-judge))))))
                             (a a))
                  (:instance crock
                             (term (acl2::substitute-into-term
                                    (meta-extract-formula
-                                    (smt-sub/supertype->thm type-tuple)
+                                    (thm-spec->thm-name
+                                     (smt-sub/supertype->thm type-tuple))
                                     state)
                                    (list
                                     (cons
-                                     (car (smt-sub/supertype->formals type-tuple))
+                                     (car (thm-spec->formals
+                                           (smt-sub/supertype->thm type-tuple)))
                                      (cadr type-judge)))))
                             (a a))))))
 )

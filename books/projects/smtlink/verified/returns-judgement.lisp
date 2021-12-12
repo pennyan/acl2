@@ -71,7 +71,7 @@
   :returns (substed-thm pseudo-termp)
   (b* ((respec (thm-spec-fix respec))
        (actuals (pseudo-term-list-fix actuals))
-       (returns-name (thm-spec->thm respec))
+       (returns-name (thm-spec->thm-name respec))
        (returns-thm-raw
         (acl2::meta-extract-formula-w returns-name (w state)))
        ((unless (pseudo-termp returns-thm-raw))
