@@ -7,7 +7,7 @@
 
 (in-package "SMT")
 
-(include-book "ttmrg")
+(include-book "ttmrg-change")
 
 (set-state-ok t)
 (set-induction-depth-limit 1)
@@ -19,192 +19,6 @@
   pseudo-termp-when-pseudo-term-syntax-p ev-smtcp-of-type-hyp-call
   (:type-prescription pseudo-lambdap))))
 
-(defsection move-this-stuff-to-conj
-  (define conj-member ((x pseudo-termp) (conj conj-p))
-    :returns (y conj-p)
-    (b* (((unless (conj-consp conj)) ''t)
-	 ((conj-cons hd tl) conj)
-	 ((if (equal x hd)) conj))
-      (conj-member x tl)))
-
-  (defrule simple-term-vars-of-conj-cons
-    (implies (and (pseudo-termp hd) (conj-p tl))
-	     (acl2::set-equiv (acl2::simple-term-vars (conj-cons hd tl))
-			      (union-equal (acl2::simple-term-vars hd)
-					   (acl2::simple-term-vars tl))))
-    :in-theory (enable conj-cons acl2::simple-term-vars acl2::simple-term-vars-lst))
-
-  (defrule ev-smtcp-of-conj-cons
-    (implies (alistp env)
-	     (equal (ev-smtcp (conj-cons hd tl) env)
-		    (and (ev-smtcp (pseudo-term-fix hd) env)
-			 (ev-smtcp (conj-fix tl) env))))
-    :in-theory (enable conj-cons))
-
-  (define conj-merge ((c1 conj-p) (c2 conj-p))
-    :returns (c conj-p)
-    (b* ((c1 (conj-fix c1))
-	 (c2 (conj-fix c2))
-	 ((if (equal c1 ''t)) c2)
-	 ((if (equal c2 ''t)) c1))
-      (conj-cons c1 c2))
-    ///
-    (more-returns
-      (c :name ev-smtcp-of-conj-merge
-	 (implies (and (conj-p c1) (conj-p c2) (alistp env))
-		  (iff (ev-smtcp c env)
-		       (and (ev-smtcp c1 env)
-			    (ev-smtcp c2 env))))))))
-
-(defsection move-this-stuff-to-ttmrg
-  (define ttmrg->top-judgement ((tterm ttmrg-p))
-    :returns (j pseudo-termp)
-    (b* (((ttmrg tterm) (ttmrg-fix tterm))
-	 (term tterm.term)
-	 ((unless (and (consp term) (not (equal (car term) 'quote))))
-	  tterm.judgements)
-	 ((unless (conj-consp tterm.judgements)) ''t))
-       (conj-car tterm.judgements)))
-
-  (define ttmrg->args-judgement ((tterm ttmrg-p))
-    :returns (j pseudo-termp)
-    (b* (((ttmrg tterm) (ttmrg-fix tterm))
-	 (term tterm.term)
-	 ((unless (and (consp term) (not (equal (car term) 'quote)))) 'tt)
-	 ((unless (conj-consp tterm.judgements)) ''t))
-       (conj-cdr tterm.judgements)))
-
-
-  (defrule ttmrg->top-args-judgement-when-ttmrg-syntax-p
-    (implies (and (ttmrg-syntax-p tterm)
-		  (consp (ttmrg->term tterm))
-		  (not (equal (car (ttmrg->term tterm)) 'quote)))
-	     (equal (conj-cons (ttmrg->top-judgement tterm)
-			       (ttmrg->args-judgement tterm))
-		    (ttmrg->judgements tterm)))
-    :in-theory (disable conj-cons-car-cdr foo-lemma)
-    :use((:instance conj-cons-car-cdr (x (TTMRG->JUDGEMENTS TTERM)))
-	 (:instance foo-lemma (args (cdr (ttmrg->term tterm)))
-		              (typed-args (ttmrg->args tterm))
-			      (jargs (conj-cdr (ttmrg->judgements tterm)))))
-    :expand ((ttmrg-syntax-p tterm)
-	     (ttmrg->top-judgement tterm)
-	     (ttmrg->args-judgement tterm)
-	     (foo-p (cdr (ttmrg->term tterm))
-				  (ttmrg->args tterm)
-				  (conj-cdr (ttmrg->judgements tterm))))
-    :prep-lemmas(
-      ; foo-p gives us the induction schema we need to prove foo-lemma:
-      ;   ttmrg-args-syntax-p establishes that the conj structure of
-      ;   tterm.judgements matches the cons structure of args and typed-args.
-      (define foo-p ((args pseudo-term-listp) (typed-args ttmrg-list-p) (jargs conj-p))
-	:returns (ok booleanp)
-	(if (and (consp args) (consp typed-args) (conj-consp jargs))
-	  (foo-p (cdr args) (cdr typed-args) (conj-cdr jargs))
-	  (and (equal args nil) (equal typed-args nil)(equal jargs ''t)))
-	///
-	(defrule foo-lemma
-	  (implies (ttmrg-args-syntax-p args typed-args jargs)
-		   (foo-p args typed-args jargs))
-	  :in-theory (enable ttmrg-args-syntax-p)))))
-
-
-  (encapsulate (((constrain-ttmrg->top-judge * state) => *))
-    (local (define constrain-ttmrg->top-judge ((arg1 acl2::any-p) (state state-p))
-      :ignore-ok t
-      :irrelevant-formals-ok t
-      :enabled t
-      ''t))
-
-    (defrule conj-p-of-constrain-ttmrg->top-judge
-      (conj-p (constrain-ttmrg->top-judge arg1 state)))
-
-    (defrule correctness-of-constrain-ttmrg->top-judge
-      (implies (and (ev-smtcp-meta-extract-global-facts)
-		    (alistp env))
-	       (ev-smtcp (constrain-ttmrg->top-judge arg1 state) env))))
-
-  (define change-ttmrg->top-judge ((tterm ttmrg-p) (new-top-judge conj-p))
-    :returns (new-tt ttmrg-p)
-    (b* (((ttmrg tterm) (ttmrg-fix tterm))
-	 (term tterm.term)
-	 (j tterm.judgements)
-	 (j2 (if (and (consp term) (not (equal (car term) 'quote)))
-	       (conj-cons new-top-judge (conj-cdr j))
-	       new-top-judge)))
-      (change-ttmrg tterm :judgements j2))
-    ///
-    (more-returns
-      (new-tt :name ttmrg-syntax-p-of-change-ttmrg->top-judge
-        (implies (ttmrg-syntax-p tterm)
-		 (ttmrg-syntax-p new-tt))
-	:hints(("Goal" :in-theory (enable ttmrg-syntax-p))))
-      (new-tt :name change-ttmrg->top-judge--unchanged-fields
-	(implies (and (ttmrg-syntax-p tterm)
-		      (conj-p new-top-judge))
-		 (and (equal (ttmrg->term new-tt)
-			     (ttmrg->term tterm))
-		      (equal (ttmrg->args new-tt)
-			     (ttmrg->args tterm))
-		      (equal (ttmrg->path-cond new-tt)
-			     (ttmrg->path-cond tterm)))))))
-
-  (defrule correct-sk-of-change-ttmrg->top-judge
-    (implies (and (ev-smtcp-meta-extract-global-facts)
-		  (ttmrg-syntax-p tterm)
-		  (ttmrg-correct-sk tterm))
-	     (ttmrg-correct-sk (change-ttmrg->top-judge
-				tterm
-				(constrain-ttmrg->top-judge arg1 state))))
-    :expand ((ttmrg-correct-sk (change-ttmrg->top-judge tterm (constrain-ttmrg->top-judge arg1 state))))
-    :prep-lemmas (
-      (defrule ttmrg-correct-and-path-cond-implies-judgements
-	(implies (and (ttmrg-correct-sk tterm)
-		      (alistp env)
-		      (ev-smtcp (ttmrg->path-cond tterm) env))
-		 (ev-smtcp (ttmrg->judgements tterm) env))
-	:in-theory (disable ttmrg-correct-sk-necc)
-	:use((:instance ttmrg-correct-sk-necc (a env))))
-
-      (defrule constrain-mrg->top-judge-maintains-judgements
-	(implies (and (ev-smtcp-meta-extract-global-facts)
-		      (ttmrg-syntax-p tterm)
-		      (alistp env)
-		      (ev-smtcp (ttmrg->judgements tterm) env))
-		 (ev-smtcp (ttmrg->judgements
-			     (change-ttmrg->top-judge tterm
-						      (constrain-ttmrg->top-judge arg1 state)))
-			   env))
-	:do-not-induct t
-	:in-theory (disable ev-smtcp-of-conj-cons)
-	:use((:instance ev-smtcp-of-conj-cons (hd (conj-car (ttmrg->judgements tterm)))
-					      (tl (conj-cdr (ttmrg->judgements tterm)))))
-	:expand ((change-ttmrg->top-judge tterm (constrain-ttmrg->top-judge arg1 state))))
-
-      (defrule ttmrg-correct-sk-implies-good-if
-	(implies (and (ttmrg-correct-sk tterm)
-		      (alistp env)
-		      (consp (ttmrg->term tterm))
-		      (equal (car (ttmrg->term tterm)) 'if))
-		 (and (implies (and (ev-smtcp (ttmrg->path-cond tterm) env)
-				    (ev-smtcp (ttmrg->term (car (ttmrg->args tterm))) env))
-			       (ev-smtcp (ttmrg->path-cond (cadr (ttmrg->args tterm))) env))
-		      (implies (and (ev-smtcp (ttmrg->path-cond tterm) env)
-				    (not (ev-smtcp (ttmrg->term (car (ttmrg->args tterm))) env)))
-			       (ev-smtcp (ttmrg->path-cond (caddr (ttmrg->args tterm))) env))))
-	:in-theory (disable ttmrg-correct-sk-necc)
-	:use((:instance ttmrg-correct-sk-necc (a env))))))
-
-  (defrule correctness-of-change-ttmrg->top-judge
-    (implies (and (ev-smtcp-meta-extract-global-facts)
-	          (ttmrg-correct-p tterm))
-	     (ttmrg-correct-p (change-ttmrg->top-judge
-			       tterm
-			       (constrain-ttmrg->top-judge arg1 state))))
-    :expand ((ttmrg-correct-p tterm)
-             (ttmrg-correct-p (change-ttmrg->top-judge
-			       tterm
-			       (constrain-ttmrg->top-judge arg1 state))))))
 
 (defsection move-this-stuff-to-../utils/pseudo-term
   (defines term-q
@@ -243,8 +57,7 @@
       :flag args)))
 
 ;;-------------------------------------------------------
-;; judgements of quoted terms nil
-;;   BOZO(?): could probably generalize to any ground term
+;; judgements of ground terms
 
 (define fnsym-p ((x acl2::any-p))
   :returns (ok booleanp)
@@ -312,137 +125,127 @@
 				      ev-smtcp-of-fncall-args)))))
 
 
-(define judgements-of-const-helper ((c pseudo-termp) (recognizers type-recognizer-list-p) (env symbol-alistp) (state state-p))
+(define judgements-of-ground-term-helper
+    ((c pseudo-termp) (recognizers type-recognizer-list-p)
+     (env symbol-alistp) (state state-p))
   :returns (j conj-p)
-  (b* (((unless (consp recognizers)) ''t)
+  (b* ((- (cw "checking (consp recognizers), recognizers = ~x0~%" recognizers))
+       ((unless (consp recognizers)) ''t)
+       (- (cw "extracting (car recognizers)~%"))
        ((cons (type-recognizer hd) tl) recognizers)
+       (- (cw "checking (pseudo-termp c), c = ~x0~%" c))
        ((unless (mbt (pseudo-termp c))) ''t)
-       ((unless (and (consp c) (equal (car c) 'quote))) ''t)
+       (- (cw "making sure c is a quoted term~%"))
+       ((unless (logic-fnsp c (w state))) ''t)
+       ((unless (null (acl2::simple-term-vars c))) ''t)
        (pred (list hd.fn c))
+       (- (cw "ready to (magic-ev ~x0 ~x1 state t nil)~%" pred env))
        ((mv magic-err magic-val)
 	(if (and hd.executable
 		 (acl2::logicp (car pred) (w state)))
 	  (acl2::magic-ev pred env state t nil)
 	  (mv t nil)))
-       (j-tl (judgements-of-const-helper c tl env state)))
+       (- (cw "good-bye"))
+       (j-tl (judgements-of-ground-term-helper c tl env state)))
     (if (and (not magic-err) magic-val)
       (conj-cons pred j-tl)
       j-tl))
   ///
-  (defrule judgements-of-const-is-ground-term
-    (not (acl2::simple-term-vars (judgements-of-const-helper c recognizers env state)))
+  (local (in-theory (enable acl2::simple-term-vars acl2::simple-term-vars-lst)))
+  (defrule judgements-of-ground-term-is-ground-term
+    (not (acl2::simple-term-vars (judgements-of-ground-term-helper c recognizers env state)))
     :prep-lemmas(
+      (defrule lemma-*1/1a
+        (implies (and (pseudo-termp c)
+		      (symbolp fn)
+		      (not (acl2::simple-term-vars c)))
+		 (not (acl2::simple-term-vars (list fn c)))))
       (defrule lemma-*1/1b
 	(let ((fn (type-recognizer->fn (car recognizers)))
-	      (j-cdr (judgements-of-const-helper c (cdr recognizers) env state)))
+	      (j-cdr (judgements-of-ground-term-helper c (cdr recognizers) env state)))
 	  (IMPLIES
 	    (AND
-	      (CONSP C)
-	      (EQUAL (CAR C) 'QUOTE)
 	      (pseudo-termp c)
-	      (NOT
-		  (ACL2::SIMPLE-TERM-VARS j-cdr)))
+	      (not (acl2::simple-term-vars c))
+	      (not (acl2::simple-term-vars j-cdr)))
 	    (not (acl2::simple-term-vars (conj-cons (list fn c) j-cdr)))))
-	:in-theory (e/d (acl2::simple-term-vars acl2::simple-term-vars-lst)
-			(simple-term-vars-of-conj-cons))
+	:in-theory (disable simple-term-vars-of-conj-cons)
 	:use((:instance simple-term-vars-of-conj-cons (hd (list (type-recognizer->fn (car recognizers)) c))
-						      (tl (judgements-of-const-helper c (cdr recognizers) env state))))))
-    :in-theory (enable (acl2::simple-term-vars)))
+						      (tl (judgements-of-ground-term-helper c (cdr recognizers) env state)))))))
 
-  (defrule correctness-of-judgements-of-const-helper
+  (defrule correctness-of-judgements-of-ground-term-helper
     (implies (and (ev-smtcp-meta-extract-global-facts)
 		  (alistp env)
 		  (alistp env2))
-	     (ev-smtcp (judgements-of-const-helper c recognizers env state) env2))
+	     (ev-smtcp (judgements-of-ground-term-helper c recognizers env state) env2))
     :prep-lemmas (
       (defrule correctness-lemma-1
 	  (implies (and (ev-smtcp-meta-extract-global-facts)
 			(alistp env))
-		   (ev-smtcp (judgements-of-const-helper c recognizers env state) env))
+		   (ev-smtcp (judgements-of-ground-term-helper c recognizers env state) env))
 	  :prep-lemmas (
 	    (defrule lemma-*1/1
-	      (implies (and (consp c)
-			    (equal (car c) 'quote)
-			    (symbolp (type-recognizer->fn (car recognizers)))
+	      (implies (and (symbolp (type-recognizer->fn (car recognizers)))
 			    (acl2::logicp (type-recognizer->fn (car recognizers)) (w state))
+			    (pseudo-termp c)
+			    (not (acl2::simple-term-vars c))
+			    (logic-fnsp c (w state))
+			    (alistp env)
 			    (not (mv-nth 0 (acl2::magic-ev (list (type-recognizer->fn (car recognizers)) c) env state t nil)))
 			    (mv-nth 1 (acl2::magic-ev (list (type-recognizer->fn (car recognizers)) c) env state t nil))
-			    (ev-smtcp-meta-extract-global-facts)
-			    (alistp env)
-			    (pseudo-termp c))
+			    (ev-smtcp-meta-extract-global-facts))
 		       (ev-smtcp (list (type-recognizer->fn (car recognizers)) c) env))
 	      :do-not-induct t
 	      :in-theory (disable acl2::magic-ev ev-smtcp-meta-extract-magic-ev)
-	      :use((:instance ev-smtcp-meta-extract-magic-ev (acl2::x (list (type-recognizer->fn (car recognizers)) c))
-							     (acl2::st state)
-							     (acl2::hard-errp t)
-							     (acl2::aokp nil)
-							     (acl2::alist env)))))
+	      :use((:instance ev-smtcp-meta-extract-magic-ev
+			        (acl2::x (list (type-recognizer->fn (car recognizers)) c))
+				(acl2::st state)
+				(acl2::hard-errp t)
+				(acl2::aokp nil)
+				(acl2::alist env)))))
 	  ; unless we disable w, lemma-*1/1 won't match "Subgoal *1/1".
 	  ; Or, we could expand out w in the statement of lemma-*1/1, but that would be painful.
 	  :in-theory (disable w)))
     :hints(("Goal"
       :in-theory (disable ev-smtcp-of-ground-term)
       :use((:instance ev-smtcp-of-ground-term
-		      (term (judgements-of-const-helper c recognizers env state))
+		      (term (judgements-of-ground-term-helper c recognizers env state))
 		      (a1 env)
 		      (a2 env2)))))))
 
 ; a simple example
-; (judgements-of-const-helper ''nil
-;   (list (make-type-recognizer :fn 'booleanp)
-; 	(make-type-recognizer :fn 'integerp)
-; 	(make-type-recognizer :fn 'natp)
-; 	(make-type-recognizer :fn 'rationalp))
-;  nil
-;  state)
+(judgements-of-ground-term-helper '(unary-- '3)
+  (list (make-type-recognizer :fn 'booleanp)
+	(make-type-recognizer :fn 'integerp)
+	(make-type-recognizer :fn 'natp)
+	(make-type-recognizer :fn 'rationalp)
+	(make-type-recognizer :fn 'true-listp))
+ nil
+ state)
 
-(defrule ttmrg-p-when-ttmrg-correct-p ; move to ttmrg.lisp
-  (implies (ttmrg-correct-p tterm) (ttmrg-p tterm))
-  :expand (ttmrg-correct-p tterm))
 
-(define judgements-of-const-x ((arg1 acl2::any-p) (state state-p))
-  :returns (j conj-p)
-  (b* (((unless (consp arg1)) ''t)
-       ((cons tterm recognizers) arg1)
-       ((unless (and (ttmrg-p tterm)
-		     (type-recognizer-list-p recognizers)))
-	''t))
-      (judgements-of-const-helper (ttmrg->term tterm) recognizers nil state))
-  ///
-  (acl2::defruled judgements-of-const-fun-fact
-    (implies (and (ev-smtcp-meta-extract-global-facts)
-		  (ttmrg-correct-p tterm)
-		  (equal arg1 (cons tterm recognizers)))
-	     (ttmrg-correct-p (change-ttmrg->top-judge (car arg1)
-						       (judgements-of-const-x arg1 state))))
-     :use((:functional-instance correctness-of-change-ttmrg->top-judge
-				(constrain-ttmrg->top-judge judgements-of-const-x))
-	  (:instance correctness-of-judgements-of-const-x))
-    :prep-lemmas (
-      (acl2::defrule correctness-of-judgements-of-const-x
-	(implies (and (ev-smtcp-meta-extract-global-facts)
-		      (alistp env))
-		 (ev-smtcp (judgements-of-const-x arg1 state) env))
-	:expand (judgements-of-const-x arg1 state)))))
-
-(define judgements-of-const ((tterm ttmrg-p) (recognizers type-recognizer-list-p) (state state-p))
+(define judgements-of-const ((tterm ttmrg-syntax-p) (recognizers type-recognizer-list-p) (state state-p))
   :guard (and (consp (ttmrg->term tterm))
 	      (equal (car (ttmrg->term tterm)) 'quote))
-  :returns (tterm2 ttmrg-p)
+  :guard-debug t
+  :returns (new-tt ttmrg-p)
   (b* (((ttmrg tterm) (ttmrg-fix tterm))
-       (new-top-judge (judgements-of-const-x (cons tterm recognizers) state)))
-     (change-ttmrg->top-judge tterm new-top-judge))
+       (new-top-judge (judgements-of-ground-term-helper tterm.term recognizers nil state)))
+     (strengthen-ttmrg->top-judge tterm new-top-judge))
   ///
   (more-returns
-    (tterm2 :name correctness-of-judgements-of-const
+    (new-tt :name correctness-of-judgements-of-const
       (implies (and (ev-smtcp-meta-extract-global-facts)
 		    (ttmrg-correct-p tterm))
-	       (ttmrg-correct-p tterm2))
+	       (ttmrg-correct-p new-tt))
       :hints(("Goal"
-	;in-theory (disable judgements-of-const-fun-fact)
-	:use((:instance judgements-of-const-fun-fact
-			(arg1 (cons tterm recognizers)))))))))
+       :use((:functional-instance
+	      correctness-of-strengthen-ttmrg->top-judge
+		(constrain-ttmrg->top-judge
+		  (lambda (tterm state)
+		    (judgements-of-ground-term-helper (ttmrg->term tterm) recognizers nil state))))))))
+    (new-tt :name judgements-of-const--unchanged-fields
+      (ttmrg-only-changed->top-judgements tterm new-tt))))
 
 stop
 

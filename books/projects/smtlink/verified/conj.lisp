@@ -106,6 +106,14 @@ of @('x').
 	(implies (conj-consp x)
 		 (< (acl2-count tl) (acl2-count x))))))
 
+(define conj-len ((x conj-p)) 
+  :short "The analog of @(see len) for @(see conj-p) objects"
+  :long "The analog of @(see len) for @(see conj-p) objects.
+         This function might not actually be called anywhere,
+	 but I refer to it to describe other functions."
+  :returns (n (and (integerp n) (<= 0 n)))
+  (if (conj-consp x) (1+ (conj-len (conj-cdr x))) 0))
+
 (define conj-cons ((hd pseudo-termp) (tl conj-p))
   :short "constructor for @(see conj-p) objects"
   :returns (conj conj-consp)
@@ -118,42 +126,95 @@ of @('x').
 	  :hints(("Goal" :in-theory (enable conj-car))))
     (conj :name conj-cdr-cons
 	  (equal (conj-cdr conj) (conj-fix tl))
-	  :hints(("Goal" :in-theory (enable conj-cdr))))))
+	  :hints(("Goal" :in-theory (enable conj-cdr)))))
 
+  (acl2::defrule conj-cons-car-cdr
+    (equal (conj-cons (conj-car x) (conj-cdr x))
+	   (if (conj-consp x) x
+	     (conj-cons ''t ''t)))
+    :in-theory (e/d (conj-cons conj-car conj-cdr)
+		    (pseudo-termp-of-conj-car conj-p-of-conj-cdr))
+    :use((:instance conj-p-of-conj-cdr)
+	 (:instance pseudo-termp-of-conj-car)))
 
-(acl2::defrule conj-cons-car-cdr
-  (equal (conj-cons (conj-car x) (conj-cdr x))
-	 (if (conj-consp x) x
-	   (conj-cons ''t ''t)))
-  :in-theory (e/d (conj-cons conj-car conj-cdr)
-		  (pseudo-termp-of-conj-car conj-p-of-conj-cdr))
-  :use((:instance conj-p-of-conj-cdr)
-       (:instance pseudo-termp-of-conj-car)))
+  (acl2::defrule eval-of-conj-cons
+    (implies (alistp env)
+	     (equal (ev-smtcp (conj-cons hd tl) env)
+		    (if (ev-smtcp (pseudo-term-fix hd) env)
+		      (ev-smtcp (conj-fix tl) env) nil))))
+
+  (defrule simple-term-vars-of-conj-cons
+    (implies (and (pseudo-termp hd) (conj-p tl))
+	     (acl2::set-equiv (acl2::simple-term-vars (conj-cons hd tl))
+			      (union-equal (acl2::simple-term-vars hd)
+					   (acl2::simple-term-vars tl))))
+    :in-theory (enable acl2::simple-term-vars acl2::simple-term-vars-lst)))
 
 (local (in-theory (disable conj-p conj-consp)))
 
-;; define our evaluator
-;(defevaluator ev-conj ev-lst-conj ; minimal evaluator that supports meta-extract, see :doc def-meta-extract
-;  ((typespec-check ts x)
-;   (if a b c)
-;   (equal a b)
-;   (not a)
-;   (iff a b)
-;   (implies a b))
-;  :namedp t)
+;(define conj-member ((x pseudo-termp) (conj conj-p))
+;  :returns (y conj-p)
+;  (b* (((unless (conj-consp conj)) ''t)
+;       ((conj-cons hd tl) conj)
+;       ((if (equal x hd)) conj))
+;    (conj-member x tl)))
 ;
-;(acl2::def-ev-theoremp ev-conj)
-;(acl2::def-meta-extract ev-conj ev-conj-lst)
-;(acl2::def-unify ev-conj ev-conj-alist)
+;
+;(define conj-merge ((c1 conj-p) (c2 conj-p))
+;  :returns (c conj-p)
+;  (b* ((c1 (conj-fix c1))
+;       (c2 (conj-fix c2))
+;       ((if (equal c1 ''t)) c2)
+;       ((if (equal c2 ''t)) c1))
+;    (conj-cons c1 c2))
+;  ///
+;  (more-returns
+;    (c :name ev-smtcp-of-conj-merge
+;       (implies (and (conj-p c1) (conj-p c2) (alistp env))
+;		(iff (ev-smtcp c env)
+;		     (and (ev-smtcp c1 env)
+;			  (ev-smtcp c2 env)))))))
+(define conj-conj-p ((x acl2::any-p))
+  :returns (ok booleanp)
+  (and (conj-p x)
+       (if (conj-consp x)
+	 (and (conj-p (conj-car x))
+	      (conj-conj-p (conj-cdr x)))
+	 t))
+  ///
+  (more-returns
+    (ok :name conj-p-when-conj-conj-p
+      (implies ok (conj-p x))
+      :rule-classes (:rewrite :forward-chaining))
+    (ok :name conj-conj-p-of-conj-cdr-when-conj-conj-p
+      (implies ok (conj-conj-p (conj-cdr x)))
+      :hints(("Goal" :in-theory (enable conj-consp))))
+    (ok :name conj-p-of-conj-car-when-conj-conj-p
+      (implies ok (conj-p (conj-car x)))
+      :hints(("Goal" :in-theory (enable conj-consp )))))
 
+  (defrule conj-conj-p-of-conj-cons
+    (implies (and (conj-p hd) (conj-conj-p tl))
+	     (conj-conj-p (conj-cons hd tl))))
 
-(acl2::defrule eval-of-conj-cons
-  (implies (and (pseudo-termp hd) (conj-p tl) (alistp a))
-	   (iff (ev-smtcp (conj-cons hd tl) a)
-		(if (ev-smtcp hd a)
-		  (ev-smtcp tl a)
-		  nil)))
-  :expand ((conj-cons hd tl)))
+  (define conj-conj-fix ((x conj-conj-p))
+    :returns (y conj-conj-p)
+    :verify-guards nil
+    (mbe :logic (if (conj-consp x)
+		  (conj-cons (conj-fix (conj-car x))
+			     (conj-conj-fix (conj-cdr x)))
+		  ''t)
+	 :exec x)
+    ///
+    (local (defrule lemma-1
+      (implies (conj-p x)
+	       (or (conj-consp x) (equal x ''t)))
+      :in-theory(enable conj-p conj-consp)
+      :rule-classes (:forward-chaining)))
+    (defrule conj-conj-fix-when-conj-conj-p
+      (implies (conj-conj-p x)
+	       (equal (conj-conj-fix x) x)))
+    (verify-guards conj-conj-fix)))
 
 (define pseudo-conj-p ((x pseudo-termp))
   :returns (ok booleanp)
@@ -172,6 +233,7 @@ of @('x').
     (ok :name pseudo-conj-p-when-conj-p
 	(implies (conj-p x) ok)
 	:hints(("Goal" :expand ((conj-p x)))))))
+
 
 (define term-to-conj ((x pseudo-termp))
   :short "convert an arbitrary @(see pseudo-termp) to a @(see conj-p)"
@@ -202,6 +264,12 @@ of @('x').
   :pred conj-p
   :fix conj-fix
   :equiv conj-equiv
+  :define t)
+
+(deffixtype conj-conj
+  :pred conj-conj-p
+  :fix conj-conj-fix
+  :equiv conj-conj-equiv
   :define t)
 
 (define conj-list-fn ((args pseudo-term-listp))
