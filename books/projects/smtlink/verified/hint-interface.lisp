@@ -21,8 +21,13 @@
 (local (in-theory (disable pseudo-termp pseudo-term-listp)))
 
 (defprod thm-spec
-  ((formals symbol-listp)
-   (thm-name symbolp)))
+  ((thm symbolp)
+   (formals symbol-listp)
+   (hypotheses pseudo-termp :default ''t)
+   (lhs pseudo-termp :default ''nil)
+   (rhs pseudo-termp :default ''nil)
+   (judgements pseudo-term-listp)
+   (hints true-listp)))
 
 (deflist thm-spec-list
   :elt-type thm-spec-p
