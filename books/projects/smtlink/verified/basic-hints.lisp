@@ -20,149 +20,146 @@
                                     :returns
                                     (list (make-thm-spec
                                            :formals '(x)
-                                           :thm-name 'return-of-symbolp)))
+                                           :thm 'return-of-symbolp)))
                        :fixer (make-smt-function
                                :name 'symbol-fix
                                :returns
                                (list (make-thm-spec
                                       :formals '(x)
-                                      :thm-name 'return-of-symbol-fix))))
+                                      :thm 'return-of-symbol-fix))))
         (make-smt-type :recognizer (make-smt-function
                                     :name 'booleanp
                                     :returns
                                     (list (make-thm-spec
                                            :formals '(x)
-                                           :thm-name 'return-of-booleanp)))
+                                           :thm 'return-of-booleanp)))
                        :fixer (make-smt-function
                                :name 'bool-fix
                                :returns
                                (list (make-thm-spec
                                       :formals '(x)
-                                      :thm-name 'return-of-bool-fix))))
+                                      :thm 'return-of-bool-fix))))
         (make-smt-type :recognizer (make-smt-function
                                     :name 'integerp
                                     :returns
                                     (list (make-thm-spec
                                            :formals '(x)
-                                           :thm-name 'return-of-integerp)))
+                                           :thm 'return-of-integerp)))
                        :fixer (make-smt-function
                                :name 'ifix
                                :returns
                                (list (make-thm-spec
                                       :formals '(x)
-                                      :thm-name 'return-of-ifix)))
+                                      :thm 'return-of-ifix)))
                        :supertypes (list (make-smt-sub/supertype
                                           :type 'rationalp
                                           :thm (make-thm-spec
                                                 :formals '(x)
-                                                :thm-name 'integerp-is-rationalp))))
+                                                :thm 'integerp-is-rationalp))))
         (make-smt-type :recognizer (make-smt-function
                                     :name 'rationalp
                                     :returns
                                     (list (make-thm-spec
                                            :formals '(x)
-                                           :thm-name 'return-of-rationalp)))
+                                           :thm 'return-of-rationalp)))
                        :fixer (make-smt-function
                                :name 'rfix
                                :returns
                                (list (make-thm-spec
                                       :formals '(x)
-                                      :thm-name 'return-of-rfix))))))
+                                      :thm 'return-of-rfix))))))
 
 (define make-basic-functions ()
   :returns (fun-lst smt-function-list-p)
   (list (make-smt-function :name 'not
                            :returns (list (make-thm-spec
                                            :formals '(x)
-                                           :thm-name 'return-of-not)))
+                                           :thm 'return-of-not)))
         (make-smt-function :name 'equal
                            :returns (list (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-equal-booleanp)
+                                           :thm 'return-of-equal-booleanp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-equal-integerp)
+                                           :thm 'return-of-equal-integerp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-equal-rationalp)
+                                           :thm 'return-of-equal-rationalp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-equal-symbolp)))
+                                           :thm 'return-of-equal-symbolp)))
         (make-smt-function :name '<
                            :returns (list (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-<-rationalp)
+                                           :thm 'return-of-<-integerp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-<-integerp)
+                                           :thm 'return-of-<-rationalp-integerp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-<-rationalp-integerp)
+                                           :thm
+                                           'return-of-<-integerp-rationalp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-<-integerp-rationalp)))
+                                           :thm 'return-of-<-rationalp)))
         (make-smt-function :name 'unary--
                            :returns (list (make-thm-spec
                                            :formals '(x)
-                                           :thm-name 'return-of-unary---integerp)
+                                           :thm 'return-of-unary---integerp)
                                           (make-thm-spec
                                            :formals '(x)
-                                           :thm-name 'return-of-unary---rationalp)))
+                                           :thm 'return-of-unary---rationalp)))
         (make-smt-function :name 'unary-/
                            :returns (list (make-thm-spec
                                            :formals '(x)
-                                           :thm-name 'return-of-unary-/-integerp)
+                                           :thm 'return-of-unary-/-integerp)
                                           (make-thm-spec
                                            :formals '(x)
-                                           :thm-name
+                                           :thm
                                            'return-of-unary-/-rationalp)))
         (make-smt-function :name 'binary-+
                            :returns (list (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-binary-+-rationalp)
+                                           :thm 'return-of-binary-+-integerp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-binary-+-integerp)
+                                           :thm 'return-of-binary-+-rationalp-integerp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-binary-+-rationalp-integerp)
+                                           :thm
+                                           'return-of-binary-+-integerp-rationalp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name
-                                           'return-of-binary-+-integerp-rationalp)))
+                                           :thm 'return-of-binary-+-rationalp)))
         (make-smt-function :name 'binary-*
                            :returns (list (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-binary-*-rationalp)
+                                           :thm 'return-of-binary-*-integerp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-binary-*-integerp)
+                                           :thm 'return-of-binary-*-rationalp-integerp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name 'return-of-binary-*-rationalp-integerp)
+                                           :thm
+                                           'return-of-binary-*-integerp-rationalp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm-name
-                                           'return-of-binary-*-integerp-rationalp)))))
+                                           :thm 'return-of-binary-*-rationalp)))))
 
 (define make-basic-replaces ()
   :returns (replace-lst smt-replace-list-p)
   (list (make-smt-replace :fn 'symbol-fix
                           :thms (list (make-thm-spec
-                                       :formals '(x)
-                                       :thm-name 'replace-of-symbol-fix)))
+                                       :thm 'replace-of-symbol-fix)))
         (make-smt-replace :fn 'bool-fix
                           :thms (list (make-thm-spec
-                                       :formals '(x)
-                                       :thm-name 'replace-of-bool-fix)))
+                                       :thm 'replace-of-bool-fix)))
         (make-smt-replace :fn 'ifix
                           :thms (list (make-thm-spec
-                                       :formals '(x)
-                                       :thm-name 'replace-of-ifix)))
+                                       :thm 'replace-of-ifix)))
         (make-smt-replace :fn 'rfix
                           :thms (list (make-thm-spec
-                                       :formals '(x)
-                                       :thm-name 'replace-of-rfix)))))
+                                       :thm 'replace-of-rfix)))))
 
 (define make-basic-hints ()
   :returns (hint smtlink-hint-p)

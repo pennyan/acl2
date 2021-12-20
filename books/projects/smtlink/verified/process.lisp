@@ -94,7 +94,13 @@
               "~p0 option is already defined in the hint.~%" first))
          (first-ok
           (case first
+            (:thm (symbolp second))
             (:formals (symbol-listp second))
+            (:hypotheses (pseudo-termp second))
+            (:lhs (pseudo-termp second))
+            (:rhs (pseudo-termp second))
+            (:judgements (pseudo-term-listp second))
+            (:hints (true-listp second))
             (t (er hard? 'process=>thm-spec-option-syntax-p-helper
                    "Smtlink-hint thm-spec hint option doesn't include: ~p0.
                        They are :formals.~%" first)))))
@@ -105,13 +111,31 @@
      (ok (implies (and (symbol-listp used) ok (consp term))
                   (and (not (member-equal (car term) used))
                        (consp (cdr term))
+                       (implies (equal (car term) :thm)
+                                (symbolp (cadr term)))
                        (implies (equal (car term) :formals)
-                                (symbol-listp (cadr term)))))
+                                (symbol-listp (cadr term)))
+                       (implies (equal (car term) :hypotheses)
+                                (pseudo-termp (cadr term)))
+                       (implies (equal (car term) :lhs)
+                                (pseudo-termp (cadr term)))
+                       (implies (equal (car term) :rhs)
+                                (pseudo-termp (cadr term)))
+                       (implies (equal (car term) :judgements)
+                                (pseudo-term-listp (cadr term)))
+                       (implies (equal (car term) :hints)
+                                (true-listp (cadr term)))))
          :name definition-of-thm-spec-option-syntax-p-helper
          :hints (("Goal"
                   :in-theory (disable consp-of-pseudo-lambdap))))
-     (ok (implies (and (symbol-listp used) ok (consp term))
-                  (or (equal (car term) :formals)))
+     (ok (implies (and (symbol-listp used) ok (consp term)
+                       (not (equal (car term) :thm))
+                       (not (equal (car term) :formals))
+                       (not (equal (car term) :hypotheses))
+                       (not (equal (car term) :lhs))
+                       (not (equal (car term) :rhs))
+                       (not (equal (car term) :judgements)))
+                  (equal (car term) :hints))
          :name option-of-thm-spec-option-syntax-p-helper
          :hints (("Goal"
                   :in-theory (disable consp-of-pseudo-lambdap)))))
@@ -137,15 +161,33 @@
     (more-returns
      (ok (implies (and ok (consp term))
                   (and (consp (cdr term))
+                       (implies (equal (car term) :thm)
+                                (symbolp (cadr term)))
                        (implies (equal (car term) :formals)
-                                (symbol-listp (cadr term)))))
+                                (symbol-listp (cadr term)))
+                       (implies (equal (car term) :hypotheses)
+                                (pseudo-termp (cadr term)))
+                       (implies (equal (car term) :lhs)
+                                (pseudo-termp (cadr term)))
+                       (implies (equal (car term) :rhs)
+                                (pseudo-termp (cadr term)))
+                       (implies (equal (car term) :judgements)
+                                (pseudo-term-listp (cadr term)))
+                       (implies (equal (car term) :hints)
+                                (true-listp (cadr term)))))
          :name definition-of-thm-spec-option-syntax-p
          :hints (("Goal"
                   :in-theory (disable definition-of-thm-spec-option-syntax-p-helper)
                   :use ((:instance definition-of-thm-spec-option-syntax-p-helper
                                    (used nil))))))
-     (ok (implies (and ok (consp term))
-                  (equal (car term) :formals))
+     (ok (implies (and ok (consp term)
+                       (not (equal (car term) :thm))
+                       (not (equal (car term) :formals))
+                       (not (equal (car term) :hypotheses))
+                       (not (equal (car term) :lhs))
+                       (not (equal (car term) :rhs))
+                       (not (equal (car term) :judgements)))
+                  (equal (car term) :hints))
          :name option-of-thm-spec-option-syntax-p
          :hints (("Goal"
                   :in-theory (disable option-of-thm-spec-option-syntax-p-helper)
@@ -165,13 +207,9 @@
   (define thm-spec-syntax-p ((term t))
     :returns (syntax-good? booleanp)
     :short "Recognizer for thm-spec-syntax."
-    (b* (((unless (true-listp term)) nil)
-         ((unless (consp term)) nil)
-         ((cons thm-name thm-spec-options) term))
-      (and (symbolp thm-name)
-           (thm-spec-option-syntax-p thm-spec-options))))
+    (thm-spec-option-syntax-p term))
 
-  (easy-fix thm-spec-syntax '(not))
+  (easy-fix thm-spec-syntax nil)
 
   (deflist thm-spec-list-syntax
     :elt-type thm-spec-syntax-p
@@ -244,7 +282,7 @@
 
   (define function-option-syntax-p ((term t))
     :returns (ok booleanp)
-    :short "Recoginizer for function-option-syntax."
+    :short "Recognizer for function-option-syntax."
     (function-option-syntax-p-helper term nil)
     ///
     (more-returns
@@ -642,23 +680,23 @@
                                 (thm-spec-list-syntax-p (cadr term)))))
          :hints (("Goal"
                   :expand (replace-option-syntax-p-helper term used)))
-         :name definition-of-replace-option-syntax-p-helper)
+         :name definition-of-option-syntax-p-helper)
      (ok (implies (and (and ok (consp term) (thm-spec-list-syntax-p used)))
                   (equal (car term) :thms))
          :hints (("Goal"
                   :expand (replace-option-syntax-p-helper term used)))
-         :name option-of-replace-option-syntax-p-helper))
-    (defthm monotonicity-of-replace-option-syntax-p-helper
+         :name option-of-option-syntax-p-helper))
+    (defthm monotonicity-of-option-syntax-p-helper
       (implies (and (subsetp used-1 used :test 'equal)
                     (replace-option-syntax-p-helper term used))
                (replace-option-syntax-p-helper term used-1))))
 
-  (defthm monotonicity-of-replace-option-syntax-p-helper-corollary
+  (defthm monotonicity-of-option-syntax-p-helper-corollary
     (implies (replace-option-syntax-p-helper term used)
              (replace-option-syntax-p-helper term nil))
     :hints (("Goal"
-             :in-theory (disable monotonicity-of-replace-option-syntax-p-helper)
-             :use ((:instance monotonicity-of-replace-option-syntax-p-helper
+             :in-theory (disable monotonicity-of-option-syntax-p-helper)
+             :use ((:instance monotonicity-of-option-syntax-p-helper
                               (used used)
                               (used-1 nil))))))
 
@@ -672,15 +710,15 @@
                   (and (consp (cdr term))
                        (implies (equal (car term) :thms)
                                 (thm-spec-list-syntax-p (cadr term)))))
-         :name definition-of-replace-option-syntax-p)
+         :name definition-of-option-syntax-p)
      (ok (implies (and (and ok (consp term)))
                   (equal (car term) :thms))
-         :name option-of-replace-option-syntax-p)
+         :name option-of-option-syntax-p)
      (ok (implies (and ok (consp term))
                   (replace-option-syntax-p (cddr term)))
          :hints (("Goal"
                   :expand (replace-option-syntax-p-helper term nil)))
-         :name monotonicity-of-replace-option-syntax-p)))
+         :name monotonicity-of-option-syntax-p)))
 
   (easy-fix replace-option-syntax nil)
   )
@@ -889,30 +927,31 @@
                            acl2::true-listp-of-car-when-true-list-listp
                            acl2::pseudo-term-listp-cdr)))
 
-(define construct-thm-spec-option-lst ((ts-opt-lst thm-spec-option-syntax-p)
-                                       (thm-spec thm-spec-p))
-    :returns (new-thm-spec thm-spec-p)
-    :measure (len ts-opt-lst)
-    :hints (("Goal" :in-theory (enable thm-spec-option-syntax-fix)))
-    (b* ((ts-opt-lst (thm-spec-option-syntax-fix ts-opt-lst))
-         (thm-spec (thm-spec-fix thm-spec))
-         ((unless (consp ts-opt-lst)) thm-spec)
-         ((thm-spec ts) thm-spec)
-         ((list* option content rest) ts-opt-lst)
-         (new-thm-spec
-          (case option
-            (:formals (change-thm-spec thm-spec :formals content)))))
-      (construct-thm-spec-option-lst rest new-thm-spec)))
+(define construct-thm-spec-option-lst
+  ((ts-opt-lst thm-spec-option-syntax-p)
+   (thm-spec thm-spec-p))
+  :returns (new-thm-spec thm-spec-p)
+  :measure (len ts-opt-lst)
+  :hints (("Goal" :in-theory (enable thm-spec-option-syntax-fix)))
+  (b* ((ts-opt-lst (thm-spec-option-syntax-fix ts-opt-lst))
+       (thm-spec (thm-spec-fix thm-spec))
+       ((unless (consp ts-opt-lst)) thm-spec)
+       ((list* option content rest) ts-opt-lst)
+       (new-thm-spec
+        (case option
+          (:thm (change-thm-spec thm-spec :thm content))
+          (:formals (change-thm-spec thm-spec :formals content))
+          (:hypotheses (change-thm-spec thm-spec :hypotheses content))
+          (:lhs (change-thm-spec thm-spec :lhs content))
+          (:rhs (change-thm-spec thm-spec :rhs content))
+          (:judgements (change-thm-spec thm-spec :judgements content))
+          (:hints (change-thm-spec thm-spec :hints content)))))
+    (construct-thm-spec-option-lst rest new-thm-spec)))
 
 (define construct-thm-spec ((thm-spec thm-spec-syntax-p))
   :returns (new-thm-spec thm-spec-p)
-  :guard-hints (("Goal" :in-theory (enable thm-spec-syntax-fix
-                                           thm-spec-syntax-p)))
-  (b* ((thm-spec (thm-spec-syntax-fix thm-spec))
-       ((unless thm-spec) nil)
-       ((cons thm-name thm-spec-opt-lst) thm-spec))
-    (construct-thm-spec-option-lst thm-spec-opt-lst
-                                   (make-thm-spec :thm-name thm-name)))
+  :guard-hints (("Goal" :in-theory (enable thm-spec-syntax-p)))
+  (construct-thm-spec-option-lst thm-spec (make-thm-spec))
   ///
   (more-returns
    (new-thm-spec (implies (thm-spec-syntax-p thm-spec)
@@ -1049,9 +1088,7 @@
        (new-smt-sub
         (case option
           (:thm (change-smt-sub/supertype
-                 smt-sub
-                 :thm
-                 (construct-thm-spec content))))))
+                 smt-sub :thm (construct-thm-spec content))))))
     (construct-sub/supertype-option-lst rest new-smt-sub)))
 
 (define construct-sub/supertype ((sub sub/supertype-syntax-p))

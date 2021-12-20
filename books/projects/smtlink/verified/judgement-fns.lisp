@@ -911,7 +911,7 @@ state)
        ((smt-sub/supertype tu) (smt-sub/supertype-fix type-tuple))
        (path-cond (pseudo-term-fix path-cond))
        (type-thm
-        (acl2::meta-extract-formula-w (thm-spec->thm-name tu.thm) (w state)))
+        (acl2::meta-extract-formula-w (thm-spec->thm tu.thm) (w state)))
        ((unless (and type-thm (pseudo-termp type-thm)))
         (prog2$
          (er hard? 'judgement-fns=>construct-one-super/subtype
@@ -1019,7 +1019,7 @@ state)
                             (path-cond `(if ,type-judge ,path-cond 'nil))
                             (expr-conj (cadr (acl2::substitute-into-term
                                               (meta-extract-formula
-                                               (thm-spec->thm-name
+                                               (thm-spec->thm
                                                 (smt-sub/supertype->thm type-tuple))
                                                state)
                                               (list
@@ -1031,7 +1031,7 @@ state)
                  (:instance crock
                             (term (acl2::substitute-into-term
                                    (meta-extract-formula
-                                    (thm-spec->thm-name
+                                    (thm-spec->thm
                                      (smt-sub/supertype->thm type-tuple))
                                     state)
                                    (list
