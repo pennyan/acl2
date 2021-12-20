@@ -146,6 +146,10 @@
   (implies (and (pseudo-term-alistp x) (not (consp (assoc-equal y x))))
            (not (assoc-equal y x))))
 
+(defthm assoc-equal-of-pseudo-term-alistp
+  (implies (and (pseudo-term-alistp x) (assoc-equal y x))
+           (pseudo-termp (cdr (assoc-equal y x)))))
+
 (defalist pseudo-term-integer
   :key-type pseudo-termp
   :val-type integerp

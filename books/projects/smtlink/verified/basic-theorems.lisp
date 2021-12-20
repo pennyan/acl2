@@ -137,19 +137,23 @@
 ;; Replace theorems
 
 (defthm replace-of-ifix
-  (implies (integerp x) (equal (ifix x) x))
+  (implies (and (integerp x) (integerp (ifix x)))
+           (equal (ifix x) x))
   :rule-classes nil)
 
 (defthm replace-of-rfix
-  (implies (rationalp x) (equal (rfix x) x))
+  (implies (and (rationalp x) (rationalp (rfix x)))
+           (equal (rfix x) x))
   :rule-classes nil)
 
 (defthm replace-of-symbol-fix
-  (implies (symbolp x) (equal (symbol-fix x) x))
+  (implies (and (symbolp x) (symbolp (symbol-fix x)))
+           (equal (symbol-fix x) x))
   :rule-classes nil)
 
 (defthm replace-of-bool-fix
-  (implies (booleanp x) (equal (bool-fix x) x))
+  (implies (and (booleanp x) (booleanp (bool-fix x)))
+           (equal (bool-fix x) x))
   :rule-classes nil)
 
 ;; --------------------------------------
