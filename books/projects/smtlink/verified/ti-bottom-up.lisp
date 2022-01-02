@@ -163,8 +163,8 @@
       (defrule lemma-*1/1b
 	(let ((fn (type-recognizer->fn (car recognizers)))
 	      (j-cdr (judgements-of-ground-term-helper c (cdr recognizers) env state)))
-	  (IMPLIES
-	    (AND
+	  (implies
+	    (and
 	      (pseudo-termp c)
 	      (not (acl2::simple-term-vars c))
 	      (not (acl2::simple-term-vars j-cdr)))
@@ -245,7 +245,7 @@
 		  (lambda (tterm state)
 		    (judgements-of-ground-term-helper (ttmrg->term tterm) recognizers nil state))))))))
     (new-tt :name judgements-of-const--unchanged-fields
-      (ttmrg-only-changed->top-judgements tterm new-tt))))
+      (ttmrg-only-changed->judgements tterm new-tt))))
 
 stop
 

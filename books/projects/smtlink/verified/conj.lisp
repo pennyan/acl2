@@ -137,11 +137,21 @@ of @('x').
     :use((:instance conj-p-of-conj-cdr)
 	 (:instance pseudo-termp-of-conj-car)))
 
-  (acl2::defrule eval-of-conj-cons
+  (defrule ev-smtcp-of-conj-cons
     (implies (alistp env)
 	     (equal (ev-smtcp (conj-cons hd tl) env)
 		    (if (ev-smtcp (pseudo-term-fix hd) env)
 		      (ev-smtcp (conj-fix tl) env) nil))))
+
+  (defrule ev-smtcp-of-conj-car
+    (implies (and (conj-p x)(alistp env) (ev-smtcp x env))
+	     (ev-smtcp (conj-car x) env))
+    :in-theory (enable conj-car conj-consp conj-p))
+
+  (defrule ev-smtcp-of-conj-cdr
+    (implies (and (conj-p x)(alistp env) (ev-smtcp x env))
+	     (ev-smtcp (conj-cdr x) env))
+    :in-theory (enable conj-cdr conj-consp conj-p))
 
   (defrule simple-term-vars-of-conj-cons
     (implies (and (pseudo-termp hd) (conj-p tl))
