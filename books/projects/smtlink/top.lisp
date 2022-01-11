@@ -20,6 +20,7 @@
 (include-book "verified/term-replacement")
 (include-book "verified/hint-generation")
 (include-book "verified/type-extract")
+(include-book "verified/alist/alist-macro")
 
 ;; trusted
 (include-book "trusted/prove")
