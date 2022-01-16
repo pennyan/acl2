@@ -729,7 +729,7 @@
            (mv nil top-judge))
           (& (mv t nil))))
        ((if err)
-        (prog2$ (er hard? 'typed-term=>typed-term->top
+        (prog2$ (er hard? 'typed-term-fns=>typed-term->top
                     "Malformed judgements ~q0" tt.judgements)
                 tterm)))
     (make-typed-term :term tt.term

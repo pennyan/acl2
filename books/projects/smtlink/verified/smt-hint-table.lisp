@@ -58,7 +58,7 @@
          (new-hint
           (change-smtlink-hint
            default-hint
-           :types (cons ,type (smtlink-hint->types default-hint)))))
+           :datatypes (cons ,type (smtlink-hint->datatypes default-hint)))))
       (value `(table smt-hint-table ',,name ',new-hint)))))
 
 (define clear-type ((hintname symbolp)
@@ -71,7 +71,7 @@
                     "Can't find the hint from smt-hint-table: ~p0. See the
                      table using (get-smt-hint-table world)~%" hintname)
                 (make-smtlink-hint))))
-    (change-smtlink-hint (cdr the-hint-cons) :types nil)))
+    (change-smtlink-hint (cdr the-hint-cons) :datatypes nil)))
 
 (defmacro set-uninterpreted (uninterpreted hintname w)
   `(make-event

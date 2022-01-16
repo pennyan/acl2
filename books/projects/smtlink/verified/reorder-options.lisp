@@ -11,19 +11,18 @@
 
 (include-book "hint-interface")
 
-(define construct-reorder-type-alist ((type-lst smt-type-list-p))
+(define construct-reorder-type-alist ((type-lst smt-acl2type-list-p))
   :returns (alst symbol-symbol-alistp)
   :measure (len type-lst)
-  (b* ((type-lst (smt-type-list-fix type-lst))
+  (b* ((type-lst (smt-acl2type-list-fix type-lst))
        ((unless (consp type-lst)) nil)
-       ((cons type-hd type-tl) type-lst))
-    (acons (smt-function->name
-            (smt-type->recognizer type-hd))
-           nil
+       ((cons type-hd type-tl) type-lst)
+       ((smt-acl2type at) type-hd))
+    (acons at.recognizer nil
            (construct-reorder-type-alist type-tl))))
 
 (define construct-reorder-options ((hints smtlink-hint-p))
   :returns (type-alst symbol-symbol-alistp)
   (b* ((hints (smtlink-hint-fix hints))
        ((smtlink-hint h) hints))
-    (construct-reorder-type-alist h.types)))
+    (construct-reorder-type-alist h.acl2types)))
