@@ -13,69 +13,105 @@
 (include-book "hint-interface")
 (include-book "basic-theorems")
 
-(define make-basic-types ()
-  :returns (type-lst smt-type-list-p)
-  (list (make-smt-type :recognizer (make-smt-function
-                                    :name 'symbolp
-                                    :returns
-                                    (list (make-thm-spec
-                                           :formals '(x)
-                                           :thm 'return-of-symbolp)))
-                       :fixer (make-smt-function
-                               :name 'symbol-fix
-                               :returns
-                               (list (make-thm-spec
-                                      :formals '(x)
-                                      :thm 'return-of-symbol-fix))))
-        (make-smt-type :recognizer (make-smt-function
-                                    :name 'booleanp
-                                    :returns
-                                    (list (make-thm-spec
-                                           :formals '(x)
-                                           :thm 'return-of-booleanp)))
-                       :fixer (make-smt-function
-                               :name 'bool-fix
-                               :returns
-                               (list (make-thm-spec
-                                      :formals '(x)
-                                      :thm 'return-of-bool-fix))))
-        (make-smt-type :recognizer (make-smt-function
-                                    :name 'integerp
-                                    :returns
-                                    (list (make-thm-spec
-                                           :formals '(x)
-                                           :thm 'return-of-integerp)))
-                       :fixer (make-smt-function
-                               :name 'ifix
-                               :returns
-                               (list (make-thm-spec
-                                      :formals '(x)
-                                      :thm 'return-of-ifix)))
-                       :supertypes (list (make-smt-sub/supertype
-                                          :type 'rationalp
-                                          :thm (make-thm-spec
-                                                :formals '(x)
-                                                :thm 'integerp-is-rationalp))))
-        (make-smt-type :recognizer (make-smt-function
-                                    :name 'rationalp
-                                    :returns
-                                    (list (make-thm-spec
-                                           :formals '(x)
-                                           :thm 'return-of-rationalp)))
-                       :fixer (make-smt-function
-                               :name 'rfix
-                               :returns
-                               (list (make-thm-spec
-                                      :formals '(x)
-                                      :thm 'return-of-rfix))))))
+(define make-acl2types ()
+  :returns (type-lst smt-acl2type-list-p)
+  (list (make-smt-acl2type :recognizer 'symbolp)
+        (make-smt-acl2type :recognizer 'booleanp)
+        (make-smt-acl2type
+         :recognizer 'integerp
+         :supertypes (list (make-smt-sub/supertype
+                            :type 'rationalp
+                            :thm (make-thm-spec
+                                  :formals '(x)
+                                  :thm 'integerp-is-rationalp))))
+        (make-smt-acl2type :recognizer 'rationalp)))
+
+(define make-datatypes ()
+  :returns (type-lst smt-datatype-list-p)
+  (list (make-smt-datatype-basic
+         :recognizer (make-smt-function :name 'symbolp
+                                        :kind :basic
+                                        :translation-hint
+                                        (make-trans-hint
+                                         :translation "Symbol_z3.z3Sym")))
+        (make-smt-datatype-basic
+         :recognizer (make-smt-function :name 'booleanp
+                                        :kind :basic
+                                        :translation-hint
+                                        (make-trans-hint
+                                         :translation "_SMT_.BoolSort()")))
+        (make-smt-datatype-basic
+         :recognizer (make-smt-function :name 'integerp
+                                        :kind :basic
+                                        :translation-hint
+                                        (make-trans-hint
+                                         :translation "_SMT_.IntSort()")))
+        (make-smt-datatype-basic
+         :recognizer (make-smt-function :name 'rationalp
+                                        :kind :basic
+                                        :translation-hint
+                                        (make-trans-hint
+                                         :translation "_SMT_.RealSort()")))))
 
 (define make-basic-functions ()
   :returns (fun-lst smt-function-list-p)
-  (list (make-smt-function :name 'not
+  (list (make-smt-function :name 'symbolp
+                           :kind :basic
                            :returns (list (make-thm-spec
                                            :formals '(x)
-                                           :thm 'return-of-not)))
+                                           :thm 'return-of-symbolp))
+                           :translation-hint
+                           (make-trans-hint :translation "Symbol_z3.z3Sym"))
+        (make-smt-function :name 'integerp
+                           :kind :basic
+                           :returns (list (make-thm-spec
+                                           :formals '(x)
+                                           :thm 'return-of-integerp))
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.IntSort()"))
+        (make-smt-function :name 'booleanp
+                           :kind :basic
+                           :returns (list (make-thm-spec
+                                           :formals '(x)
+                                           :thm 'return-of-booleanp))
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.BoolSort()"))
+        (make-smt-function :name 'rationalp
+                           :kind :basic
+                           :returns (list (make-thm-spec
+                                           :formals '(x)
+                                           :thm 'return-of-rationalp))
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.RealSort()"))
+        (make-smt-function :name 'symbol-fix
+                           :kind :basic
+                           :returns (list (make-thm-spec
+                                           :formals '(x)
+                                           :thm 'return-of-symbol-fix)))
+        (make-smt-function :name 'bool-fix
+                           :kind :basic
+                           :returns (list (make-thm-spec
+                                           :formals '(x)
+                                           :thm 'return-of-bool-fix)))
+        (make-smt-function :name 'ifix
+                           :kind :basic
+                           :returns (list (make-thm-spec
+                                           :formals '(x)
+                                           :thm 'return-of-ifix)))
+        (make-smt-function :name 'rfix
+                           :kind :basic
+                           :returns (list (make-thm-spec
+                                           :formals '(x)
+                                           :thm 'return-of-rfix)))
+        (make-smt-function :name 'not
+                           :kind :basic
+                           :returns (list (make-thm-spec
+                                           :formals '(x)
+                                           :thm 'return-of-not))
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.notx"))
         (make-smt-function :name 'equal
+                           :kind :basic
                            :returns (list (make-thm-spec
                                            :formals '(x y)
                                            :thm 'return-of-equal-booleanp)
@@ -87,8 +123,11 @@
                                            :thm 'return-of-equal-rationalp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm 'return-of-equal-symbolp)))
+                                           :thm 'return-of-equal-symbolp))
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.equal"))
         (make-smt-function :name '<
+                           :kind :basic
                            :returns (list (make-thm-spec
                                            :formals '(x y)
                                            :thm 'return-of-<-integerp)
@@ -101,23 +140,32 @@
                                            'return-of-<-integerp-rationalp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm 'return-of-<-rationalp)))
+                                           :thm 'return-of-<-rationalp))
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.lt"))
         (make-smt-function :name 'unary--
+                           :kind :basic
                            :returns (list (make-thm-spec
                                            :formals '(x)
                                            :thm 'return-of-unary---integerp)
                                           (make-thm-spec
                                            :formals '(x)
-                                           :thm 'return-of-unary---rationalp)))
+                                           :thm 'return-of-unary---rationalp))
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.negate"))
         (make-smt-function :name 'unary-/
+                           :kind :basic
                            :returns (list (make-thm-spec
                                            :formals '(x)
                                            :thm 'return-of-unary-/-integerp)
                                           (make-thm-spec
                                            :formals '(x)
                                            :thm
-                                           'return-of-unary-/-rationalp)))
+                                           'return-of-unary-/-rationalp))
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.reciprocal"))
         (make-smt-function :name 'binary-+
+                           :kind :basic
                            :returns (list (make-thm-spec
                                            :formals '(x y)
                                            :thm 'return-of-binary-+-integerp)
@@ -130,8 +178,11 @@
                                            'return-of-binary-+-integerp-rationalp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm 'return-of-binary-+-rationalp)))
+                                           :thm 'return-of-binary-+-rationalp))
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.plus"))
         (make-smt-function :name 'binary-*
+                           :kind :basic
                            :returns (list (make-thm-spec
                                            :formals '(x y)
                                            :thm 'return-of-binary-*-integerp)
@@ -144,27 +195,31 @@
                                            'return-of-binary-*-integerp-rationalp)
                                           (make-thm-spec
                                            :formals '(x y)
-                                           :thm 'return-of-binary-*-rationalp)))))
+                                           :thm
+                                           'return-of-binary-*-rationalp))
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.times"))
+        (make-smt-function :name 'if
+                           :kind :basic
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.ifx"))
+        (make-smt-function :name 'implies
+                           :kind :basic
+                           :translation-hint
+                           (make-trans-hint :translation "_SMT_.implies"))))
 
 (define make-basic-replaces ()
-  :returns (replace-lst smt-replace-list-p)
-  (list (make-smt-replace :fn 'symbol-fix
-                          :thms (list (make-thm-spec
-                                       :thm 'replace-of-symbol-fix)))
-        (make-smt-replace :fn 'bool-fix
-                          :thms (list (make-thm-spec
-                                       :thm 'replace-of-bool-fix)))
-        (make-smt-replace :fn 'ifix
-                          :thms (list (make-thm-spec
-                                       :thm 'replace-of-ifix)))
-        (make-smt-replace :fn 'rfix
-                          :thms (list (make-thm-spec
-                                       :thm 'replace-of-rfix)))))
+  :returns (replace-lst thm-spec-list-p)
+  (list (make-thm-spec :thm 'replace-of-symbol-fix)
+        (make-thm-spec :thm 'replace-of-bool-fix)
+        (make-thm-spec :thm 'replace-of-ifix)
+        (make-thm-spec :thm 'replace-of-rfix)))
 
 (define make-basic-hints ()
   :returns (hint smtlink-hint-p)
   (make-smtlink-hint
-   :types (make-basic-types)
+   :acl2types (make-acl2types)
+   :datatypes (make-datatypes)
    :functions (make-basic-functions)
    :replaces (make-basic-replaces)
    :configurations (make-smt-config :smt-cnf (default-smt-cnf))))

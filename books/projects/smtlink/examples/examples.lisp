@@ -107,9 +107,8 @@
                                                    :formals (a b))))
                         (bar :return ((:thm rationalp-of-bar
                                        :formals (x y)))))
-            :replaces ((foo
-                        :thms ((:thm replace-of-foo-int-int-rat)
-                               (:thm replace-of-foo-int-int-int))))
+            :replaces ((:thm replace-of-foo-int-int-rat)
+                       (:thm replace-of-foo-int-int-int))
             :hypotheses ((:instance foo->=-0
                                     ((a x) (b y)))
                          (:instance bar->=-0
@@ -154,34 +153,35 @@
                0))
   :hints (("Goal"
            :smtlink
-           (:types ((animal-p
-                     :recognizer (animal-p
-                                  :translation animal
-                                  :return ((:thm booleanp-of-animal-p
-                                            :formals (x))))
-                     :fixer (animal-fix$inline
-                             :return ((:thm animal-p-of-animal-fix
-                                       :formals (x))))
-                     :sums
-                     ((:constructor (animal
-                                     :translation animal
-                                     :return ((:thm return-of-animal
-                                               :formals (x y z))))
-                       :destructors ((animal->furry$inline
-                                      :translation furry
-                                      :return ((:thm return-of-animal->furry
-                                                :formals (x))))
-                                     (animal->size$inline
-                                      :translation size
-                                      :return ((:thm return-of-animal->size
-                                                :formals (x))))
-                                     (animal->category$inline
-                                      :translation category
-                                      :return
-                                      ((:thm return-of-animal->category
-                                        :formals (x)))))))))
-            :replaces ((animal-fix$inline
-                        :thms ((:thm replace-of-animal-fix))))))))
+           (:functions ((animal-p
+                         :return ((:thm booleanp-of-animal-p :formals (x))))
+                        (animal-fix$inline
+                         :return ((:thm animal-p-of-animal-fix :formals (x))))
+                        (animal
+                         :return ((:thm return-of-animal :formals (x y z))))
+                        (animal->furry$inline
+                         :return ((:thm return-of-animal->furry :formals (x))))
+                        (animal->size$inline
+                         :return ((:thm return-of-animal->size :formals (x))))
+                        (animal->category$inline
+                         :return ((:thm return-of-animal->category :formals (x)))))
+            :acl2types ((animal-p))
+            :datatypes (:sumtypes ((animal-p
+                                    :recognizer (animal-p :translation "Animal"
+                                                          :return-type booleanp)
+                                    :sums
+                                    ((:constructor (animal :translation "animal"
+                                                           :return-type animal-p)
+                                      :destructors ((animal->furry$inline
+                                                     :translation "furry"
+                                                     :return-type booleanp)
+                                                    (animal->size$inline
+                                                     :translation "size"
+                                                     :return-type integerp)
+                                                    (animal->category$inline
+                                                     :translation "category"
+                                                     :return-type symbolp)))))))
+            :replaces ((:thm replace-of-animal-fix))))))
 
 (deflist integer-list
   :elt-type integerp
@@ -277,7 +277,6 @@
                               integer-list->car
                               integer-list->cdr))))
 
-;; This one fails with one of the returned subgoal
 (defthm test6
   (implies (and (integer-list-p x) (integer-list-p y)
                 (not (equal x nil)))
@@ -295,36 +294,35 @@
                          :return ((:thm return-of-cdr-for-integer-list
                                    :formals (x))))
                         (equal
+                         :kind :basic
+                         :translation "_SMT_.equal"
                          :return ((:thm return-of-equal-for-integer-list
-                                   :formals (x y)))))
-            :types ((integer-list-p
-                     :recognizer (integer-list-p
-                                  :translation integerList
-                                  :return ((:thm booleanp-of-integer-list-p
-                                            :formals (x))))
-                     :fixer (integer-list-fix$inline)
-                     :sums
-                     ((:constructor (integer-list->cons
-                                     :translation cons
-                                     :return-type integer-list-p)
-                       :destructors ((integer-list->car
-                                      :translation car
-                                      :return-type integerp)
-                                     (integer-list->cdr
-                                      :translation cdr
-                                      :return-type integer-list-p)))
-                      (:constructor (integer-list->nil
-                                     :translation nil
-                                     :return-type integer-list-p)
-                       :destructors nil))))
-            :replaces ((cons
-                        :thms ((:thm replace-of-integer-list->cons)))
-                       (car
-                        :thms ((:thm replace-of-integer-list->car)))
-                       (cdr
-                        :thms ((:thm replace-of-integer-list->cdr)))
-                       ('nil
-                        :thms ((:thm replace-of-integer-list->nil))))))))
+                                        :formals (x y))))
+                        (integer-list-p
+                         :return ((:thm booleanp-of-integer-list-p
+                                        :formals (x)))))
+            :acl2types ((integer-list-p))
+            :datatypes (:sumtypes ((integer-list-p
+                                    :recognizer (integer-list-p :translation "IntegerList")
+                                    :sums
+                                    ((:constructor (integer-list->cons
+                                                    :translation "cons"
+                                                    :return-type integer-list-p)
+                                      :destructors ((integer-list->car
+                                                     :translation "car"
+                                                     :return-type integerp)
+                                                    (integer-list->cdr
+                                                     :translation "cdr"
+                                                     :return-type integer-list-p)))
+                                     (:constructor (integer-list->nil
+                                                    :fn-to-const t
+                                                    :translation "nil"
+                                                    :return-type integer-list-p)
+                                                   :destructors nil)))))
+            :replaces ((:thm replace-of-integer-list->cons)
+                       (:thm replace-of-integer-list->car)
+                       (:thm replace-of-integer-list->cdr)
+                       (:thm replace-of-integer-list->nil))))))
 
 (defoption maybe-rational rationalp)
 
@@ -371,36 +369,44 @@
   :hints (("Goal"
            :smtlink
            (:functions ((equal
+                         :kind :basic
+                         :translation "_SMT_.equal"
                          :return ((:thm return-of-equal-for-maybe-rational-p
-                                   :formals (x y)))))
-            :types ((maybe-rational-p
-                     :recognizer (maybe-rational-p
-                                  :translation maybeRational
-                                  :return ((:thm booleanp-of-maybe-rational-p
-                                            :formals (x))))
-                     :fixer (maybe-rational-fix$inline
-                             :return ((:thm maybe-rational-p-of-maybe-rational-fix
-                                       :formals (x))))
-                     :sums
-                     ((:constructor (maybe-rational-some
-                                     :translation some
-                                     :return ((:thm return-of-maybe-rational-some
-                                               :formals (x))))
-                       :destructors ((maybe-rational-some->val$inline
-                                      :translation val
-                                      :return
-                                      ((:thm return-of-maybe-rational-some->val
-                                        :formals (x))))))
-                      (:constructor (maybe-rational-nil
-                                     :translation nil
-                                     :return
-                                     ((:thm return-of-maybe-rational-nil)))))
-                     :subtypes
-                     ((rationalp
-                       :thm (:thm maybe-rational-p-canbe-rationalp
-                             :formals (x))))))
-           :replaces (('nil
-                       :thms ((:thm replace-of-maybe-rational-nil))))))))
+                                        :formals (x y))))
+                        (maybe-rational-p
+                         :return ((:thm booleanp-of-maybe-rational-p
+                                        :formals (x))))
+                        (maybe-rational-fix$inline
+                         :return ((:thm maybe-rational-p-of-maybe-rational-fix
+                                        :formals (x))))
+                        (maybe-rational-some
+                         :return ((:thm return-of-maybe-rational-some
+                                        :formals (x))))
+                        (maybe-rational-some->val$inline
+                         :return ((:thm return-of-maybe-rational-some->val
+                                        :formals (x))))
+                        (maybe-rational-nil
+                         :return ((:thm return-of-maybe-rational-nil))))
+            :acl2types ((maybe-rational-p
+                         :subtypes ((rationalp
+                                     :thm (:thm maybe-rational-p-canbe-rationalp
+                                                :formals (x))))))
+            :datatypes (:sumtypes ((maybe-rational-p
+                                    :recognizer (maybe-rational-p
+                                                 :translation "MaybeRational"
+                                                 :return-type booleanp)
+                                    :sums
+                                    ((:constructor (maybe-rational-some
+                                                    :translation "some"
+                                                    :return-type maybe-rational-p)
+                                      :destructors ((maybe-rational-some->val$inline
+                                                     :translation "val"
+                                                     :return-type rationalp)))
+                                     (:constructor (maybe-rational-nil
+                                                    :translation "nil"
+                                                    :return-type maybe-rational-p
+                                                    :fn-to-const t))))))
+            :replaces ((:thm replace-of-maybe-rational-nil))))))
 
 (deftagsum food
   (:sandwich ((layer integerp)))
@@ -456,45 +462,138 @@
   :hints (("Goal"
            :smtlink
            (:functions ((equal
+                         :kind :basic
+                         :translation "_SMT_.equal"
                          :return ((:thm return-of-equal-for-food-p
                                    :formals (x y))
                                   (:thm return-of-equal-for-symbolp
-                                   :formals (x y)))))
-            :types ((food-p
-                     :kind (food-kind$inline
-                            :translation foodKind
-                            :return ((:thm symbolp-of-food-kind
-                                      :formals (x))))
-                     :recognizer (food-p
-                                  :translation food
-                                  :return ((:thm booleanp-of-food-p
-                                            :formals (x))))
-                     :fixer (food-fix$inline
-                             :return ((:thm food-p-of-food-fix
-                                       :formals (x))))
-                     :sums
-                     ((:tag :sandwich
-                       :constructor (food-sandwich
-                                     :translation sandwich
-                                     :return ((:thm return-of-food-sandwich
-                                               :formals (x))))
-                       :destructors ((food-sandwich->layer$inline
-                                      :translation layer
-                                      :return ((:thm return-of-food-sandwich->layer
-                                                :formals (x))))))
-                      (:tag :dumpling
-                       :constructor (food-dumpling
-                                     :translation dumpling
-                                     :return ((:thm return-of-food-dumpling
-                                               :formals (x y))))
-                       :destructors ((food-dumpling->flavor$inline
-                                      :translation flavor
-                                      :return ((:thm return-of-food-dumpling->flavor
-                                                :formals (x))))
-                                     (food-dumpling->size$inline
-                                      :translation size
-                                      :return ((:thm return-of-food-dumpling->size
-                                                :formals (x)))))))))
+                                        :formals (x y))))
+                        (food-kind$inline
+                         :return ((:thm symbolp-of-food-kind :formals (x))))
+                        (food-p
+                         :return ((:thm booleanp-of-food-p :formals (x))))
+                        (food-sandwich
+                         :return ((:thm return-of-food-sandwich :formals (x))))
+                        (food-sandwich->layer$inline
+                         :return ((:thm return-of-food-sandwich->layer
+                                        :formals (x))))
+                        (food-dumpling
+                         :return ((:thm return-of-food-dumpling
+                                        :formals (x y))))
+                        (food-dumpling->flavor$inline
+                         :return ((:thm return-of-food-dumpling->flavor
+                                        :formals (x))))
+                        (food-dumpling->size$inline
+                         :return ((:thm return-of-food-dumpling->size
+                                        :formals (x))))
+                        (food-fix$inline
+                         :return ((:thm food-p-of-food-fix
+                                        :formals (x)))))
+            :acl2types ((food-p))
+            :datatypes (:sumtypes ((food-p
+                                    :kind (food-kind$inline :translation "FoodKind"
+                                                            :return-type symbolp)
+                                    :recognizer (food-p :translation "food"
+                                                        :return-type booleanp)
+                                    :sums
+                                    ((:tag :sandwich
+                                      :constructor (food-sandwich :translation "sandwich"
+                                                                  :return-type food-p)
+                                      :destructors ((food-sandwich->layer$inline
+                                                     :translation "layer"
+                                                     :return-type integerp)))
+                                     (:tag :dumpling
+                                      :constructor (food-dumpling :translation "dumpling"
+                                                                  :return-type food-p)
+                                      :destructors ((food-dumpling->flavor$inline
+                                                     :translation "flavor"
+                                                     :return-type symbolp)
+                                                    (food-dumpling->size$inline
+                                                     :translation "size"
+                                                     :return-type integerp)))))))))))
+
+(defalist-smt symbol-integer-alist-p symbolp symbol-fix integerp ifix)
+
+(defthm test9
+  (implies (and (symbol-integer-alist-p x) (symbolp y)
+                (not (equal (assoc-equal y x) nil)))
+           (>= (* (cdr (assoc-equal y x))
+                  (cdr (assoc-equal y x)))
+               0))
+  :hints (("Goal"
+           :smtlink
+           (:functions ((assoc-equal
+                         :return ((:thm maybe-symbol-integer-consp-of-assoc-equal-of-symbol-integer-alist-p
+                                   :formals (k x))))
+                        (cdr
+                         :return ((:thm integerp-of-cdr-of-symbol-integer-consp
+                                        :formals (x))
+                                  (:thm integerp-of-cdr-of-maybe-symbol-integer-consp
+                                        :formals (x))))
+                        (equal
+                         :kind :basic
+                         :translation "_SMT_.equal"
+                         :return ((:thm booleanp-of-equal-of-maybe-symbol-integer-consp
+                                        :formals (x y))))
+                        (symbol-integer-alist-p
+                         :return ((:thm booleanp-of-symbol-integer-alist-p
+                                        :formals (x))))
+                        (symbol-integer-consp
+                         :return ((:thm booleanp-of-symbol-integer-consp
+                                        :formals (x))))
+                        (maybe-symbol-integer-consp
+                         :return ((:thm booleanp-of-maybe-symbol-integer-consp
+                                        :formals (x))))
+                        (maybe-symbol-integer-cons-fix
+                         :return ((:thm maybe-symbol-integer-consp-of-maybe-symbol-integer-cons-fix
+                                        :formals (x)))))
+            :acl2types ((maybe-symbol-integer-consp
+                         :subtypes ((symbol-integer-consp
+                                     :thm (:thm maybe-symbol-integer-consp-canbe-symbol-integer-consp
+                                                :formals (x)))))
+                        (symbol-integer-alist-p)
+                        (symbol-integer-consp)
+                        (symbol-integer-array-equiv-consp)
+                        (symbol-integer-array-p))
+            :datatypes (:sumtypes ((maybe-symbol-integer-consp
+                                    :recognizer
+                                    (maybe-symbol-integer-consp :translation "MaybeSymbolIntegerCons")
+                                    :sums
+                                    ((:constructor (maybe-symbol-integer-cons->cons
+                                                    :translation "cons"
+                                                    :return-type maybe-symbol-integer-consp)
+                                      :destructors ((maybe-symbol-integer-cons->car
+                                                     :translation "car"
+                                                     :return-type symbolp)
+                                                    (maybe-symbol-integer-cons->cdr
+                                                     :translation "cdr"
+                                                     :return-type integerp)))
+                                     (:constructor (maybe-symbol-integer-cons->nil
+                                                    :fn-to-const t
+                                                    :translation "nil"
+                                                    :return-type maybe-symbol-integer-consp)
+                                                   :destructors nil))))
+                        :arrays ((symbol-integer-array-p
+                                  :recognizer (symbol-integer-array-p
+                                               :translation "SymbolIntegerArray")
+                                  :key-type symbolp
+                                  :val-type maybe-symbol-integer-consp
+                                  :init (:fn (symbol-integer-array-init
+                                              :translation
+                                              "symbolIntegerArrayInit")
+                                         :val maybe-symbol-integer-cons->nil)
+                                  :select (symbol-integer-array-select)
+                                  :store (symbol-integer-array-store)
+                                  :equal (symbol-integer-array-equal)
+                                  :equal-witness (symbol-integer-array-equal-witness))))
+            :replaces ((:thm
+                        symbol-integer-array-translation-of-assoc-equal)
+                       (:thm symbol-integer-array-translation-of-acons)
+                       (:thm symbol-integer-array-translation-of-alist)
+                       (:thm symbol-integer-array-translation-of-nil)
+                       (:thm
+                        replace-of-cdr-of-symbol-integer-consp)
+                       (:thm replace-of-maybe-symbol-integer-cons->nil))
             ))))
 
 ;; Example 1
@@ -2201,4 +2300,3 @@
 ;;                                              (real/rationalp-of-x^2-y^2
 ;;                                               realfix-when-real/rationalp)))
 ;;                                 :level 1))))))
-

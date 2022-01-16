@@ -11,8 +11,8 @@
    ((ua-store * * *) => *)
    ((ua-select * *) => *)
    ((ua-get-default-element *) => *)
-   ;; ((ua-equal * *) => *)
-   )
+   ((ua-equal * *) => *)
+   ((ua-equal-witness * *) => *))
 
   (local (define ua-element-default () nil))
 
@@ -72,12 +72,12 @@
            :enabled t
            (cons nil default-value)))
 
-  (local (define ua-store ((i acl2::any-p) (e acl2::any-p) (ua ua-p))
+  (local (define ua-store ((ua ua-p) (i acl2::any-p) (e acl2::any-p))
            :enabled t
            (let ((ua (ua-fix ua)))
              (cons (acons i e (car ua)) (cdr ua)))))
 
-  (local (define ua-select ((i acl2::any-p) (ua ua-p))
+  (local (define ua-select ((ua ua-p) (i acl2::any-p))
            :enabled t
            (let ((ua (ua-fix ua))
 	               (a  (assoc-equal i (car ua))))
@@ -85,27 +85,52 @@
                  (cdr a)
 	             (cdr ua)))))
 
+  (local (acl2::define-sk ua-equal ((a1 ua-p) (a2 ua-p))
+                          :returns (ok acl2::any-p)
+                          (forall (k) (equal (ua-select a1 k) (ua-select a2 k)))))
+
 ; The theorems that create the constraints on the functions in our signature
   (defthm ua-p-of-ua-init (ua-p (ua-init v0)))
 
-  (defthm ua-p-of-ua-store (ua-p (ua-store i v ua)))
+  (defthm ua-p-of-ua-store (ua-p (ua-store ua i v)))
 
   (defthm ua-get-default-element-of-ua-init
     (equal (ua-get-default-element (ua-init v0)) v0))
 
   (defthm ua-get-default-element-of-ua-store
     (implies (ua-p ua)
-             (equal (ua-get-default-element (ua-store i v ua))
+             (equal (ua-get-default-element (ua-store ua i v))
 		                (ua-get-default-element ua))))
 
-  (defthm ua-select-of-ua-init (equal (ua-select i (ua-init v)) v))
+  (defthm ua-select-of-ua-init (equal (ua-select (ua-init v) i) v))
 
   (defthm ua-select-of-ua-store-when-indices-equal
     (implies (ua-p ua)
-	           (equal (ua-select i (ua-store i v0 ua)) v0)))
+	           (equal (ua-select (ua-store ua i v0) i) v0)))
 
   (defthm ua-select-of-ua-store-when-indices-not-equal
     (implies (and (ua-p ua) (not (equal i1 i0)))
-	           (equal (ua-select i1 (ua-store i0 v0 ua))
-		                (ua-select i1 ua))))
+	           (equal (ua-select (ua-store ua i0 v0) i1)
+		                (ua-select ua i1))))
+
+  (defthm booleanp-of-ua-equal
+    (booleanp (ua-equal a1 a2))
+    :hints (("Goal"
+             :in-theory (enable ua-equal))))
+
+  (defthm ua-equal-implies-selects-equal
+    (implies (ua-equal a1 a2)
+	           (equal (ua-select a1 k)
+		                (ua-select a2 k)))
+    :rule-classes nil
+    :hints (("Goal"
+             :use((:instance ua-equal-necc)))))
+
+  (defthm selects-of-witness-equal-implies-ua-equal
+    (let ((k (ua-equal-witness a1 a2)))
+      (equal (ua-equal a1 a2)
+	           (equal (ua-select a1 k)
+			              (ua-select a2 k))))
+    :hints (("Goal"
+             :in-theory (enable ua-equal))))
   )

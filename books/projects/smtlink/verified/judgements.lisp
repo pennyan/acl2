@@ -38,13 +38,13 @@
   (only-one-var-acc term-lst term 0))
 
 (define type-predicate-p ((judge pseudo-termp)
-                          (supertype-alst type-to-types-alist-p))
+                          (type-alst alistp))
   :returns (ok booleanp)
   (and (pseudo-termp judge)
        (equal (len judge) 2)
        (symbolp (car judge))
        (not (equal (car judge) 'quote))
-       (is-type? (car judge) supertype-alst))
+       (is-type? (car judge) type-alst))
   ///
   (more-returns
    (ok (implies ok

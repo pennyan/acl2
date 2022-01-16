@@ -11,7 +11,6 @@
 (include-book "std/strings/top" :dir :system)
 (include-book "ordinals/lexicographic-ordering-without-arithmetic" :dir :system)
 
-(include-book "../../verified/hint-interface")
 (include-book "pretty-printer")
 (include-book "translate-declarations")
 (include-book "translate-uninterpreted")
@@ -23,34 +22,6 @@
 (local (in-theory (e/d (paragraph-p word-p string-or-symbol-p)
                        (symbol-listp
                         pseudo-term-listp-of-symbol-listp))))
-
-(define translate-nonbasic-function ((fn symbolp)
-                                     (trusted-hint trusted-hint-p))
-  :returns (mv (translated-fn paragraph-p)
-               (type-fn? booleanp))
-  (b* ((fn (symbol-fix fn))
-       (trusted-hint (trusted-hint-fix trusted-hint))
-       ((trusted-hint th) trusted-hint)
-       (exists? (assoc-equal fn th.user-fns))
-       ((unless exists?) (mv (translate-variable fn) nil))
-       ((trans-hint h) (cdr exists?))
-       (type-trans h.type-translation)
-       (func-trans h.function-translation)
-       ((unless type-trans)
-        (mv (translate-variable func-trans) t)))
-    (mv `(,(translate-variable type-trans) "."
-          ,(translate-variable func-trans))
-        t)))
-
-(define translate-function-name ((fn symbolp)
-                                 (trusted-hint trusted-hint-p))
-  :returns (mv (translated paragraph-p)
-               (type-fn? booleanp))
-  (b* ((fn (symbol-fix fn))
-       (trusted-hint (trusted-hint-fix trusted-hint))
-       (basic? (assoc-equal fn *SMT-functions*))
-       ((if basic?) (mv (cadr basic?) nil)))
-    (translate-nonbasic-function fn trusted-hint)))
 
 (define map-translated-actuals ((actuals paragraph-p))
   :returns (mapped paragraph-p)
@@ -89,10 +60,10 @@
           (mv (er hard? 'translate=>translate-term
                   "Found lambda in term ~p0~%" term)
               sym-keeper))
-         ((mv translated-fn type-fn?) (translate-function-name fn th))
+         ((mv translated-fn to-const?) (translate-function-name fn th))
          ((mv translated-actuals actuals-keeper)
           (translate-term-list actuals hint sym-keeper))
-         ((if (and type-fn? (null actuals)))
+         ((if (and to-const? (null actuals)))
           (mv `(,translated-fn) actuals-keeper)))
       (mv `(,translated-fn
             #\(
@@ -167,17 +138,18 @@
        ((trusted-hint th) h.trusted-hint)
        (- (cw "theorem-body: ~q0" theorem-body))
        ((mv translated-body sym-keeper)
-        (translate-theorem theorem-body
-                           h
+        (translate-theorem theorem-body h
                            (make-symbol-keeper :symbol-map nil
                                                :index 0
                                                :avoid-list avoid-syms)))
        (- (cw "decl-list: ~q0" decl-list))
        ((symbol-keeper s) sym-keeper)
        (- (cw "symbol-keeper: ~q0" s))
+       (- (cw "th.user-types: ~q0" th.user-types))
        ((mv translated-decl decl-properties)
-        (translate-declarations decl-list th.user-types s))
+        (translate-declarations decl-list th s))
        (- (cw "translated-decl: ~q0" translated-decl))
+       (- (cw "th.user-fns: ~q0" th.user-fns))
        ((mv translated-uninterpreted uninterpreted-properties)
         (translate-uninterpreted th.user-fns th.user-types))
        (pretty-translated-body (pretty-print-theorem translated-body 80))

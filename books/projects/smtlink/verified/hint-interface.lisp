@@ -9,6 +9,7 @@
 (include-book "centaur/fty/top" :dir :system)
 (include-book "xdoc/top" :dir :system)
 (include-book "std/util/define" :dir :system)
+(include-book "std/alists/alist-fix" :dir :system)
 
 (include-book "../config")
 (include-book "../utils/basics")
@@ -18,7 +19,11 @@
 ;;   :parents (verified)
 ;;   :short "Define default Smtlink hint interface"
 
-(local (in-theory (disable pseudo-termp pseudo-term-listp)))
+(local (in-theory (disable pseudo-termp pseudo-term-listp
+                           ACL2::PSEUDO-TERM-LISTP-OF-CDR-WHEN-PSEUDO-TERM-LISTP
+                           ACL2::PSEUDO-TERM-LISTP-OF-CAR-WHEN-PSEUDO-TERM-LIST-LISTP
+                           PSEUDO-TERM-LIST-LISTP
+                           PSEUDO-LAMBDAP-OF-FN-CALL-OF-PSEUDO-TERMP)))
 
 (defprod thm-spec
   ((thm symbolp)
@@ -27,6 +32,9 @@
    (lhs pseudo-termp :default ''nil)
    (rhs pseudo-termp :default ''nil)
    (judgements pseudo-term-listp)
+   (var-term pseudo-termp)
+   (var-hyp pseudo-termp :default ''t)
+   (hyp-judge pseudo-termp :default ''t)
    (hints true-listp)))
 
 (deflist thm-spec-list
@@ -45,19 +53,20 @@
                 (thm-spec-list-p (cdr (assoc-equal x alst))))))
 
 (defprod trans-hint
-  ((type-translation symbolp)
-   (function-translation symbolp)
+  ((type stringp :default "")
+   (translation stringp :default "")
    (formal-types symbol-listp)
    (return-type symbolp)
-   (kind symbolp)))
+   (fn-to-const booleanp)))
 
 (defprod smt-function
   :parents (smtlink-hint)
-  ((name symbolp :default nil)
-   (returns thm-spec-list-p :default nil)
-   (translation-hint trans-hint-p :default (make-trans-hint))
-   (uninterpreted-hints true-listp :default nil)
-   (depth natp :default 0)))
+  ((name symbolp)
+   (returns thm-spec-list-p)
+   (uninterpreted-hints true-listp)
+   (depth natp :default 0)
+   (kind symbolp) ;; :basic :type :uninterpreted
+   (translation-hint trans-hint-p :default (make-trans-hint))))
 
 (defoption maybe-smt-function smt-function-p)
 
@@ -101,20 +110,54 @@
   :elt-type smt-sum-p
   :true-listp t)
 
-(defprod smt-type
-  ((kind maybe-smt-function-p)
-   (recognizer smt-function-p :default (make-smt-function))
-   (fixer smt-function-p :default (make-smt-function))
-   (sums smt-sum-list-p)
-   (subtypes smt-sub/supertype-list-p)
-   (supertypes smt-sub/supertype-list-p)))
+(defprod init
+  ((fn smt-function-p :default (make-smt-function))
+   (val symbolp)))
 
-(deflist smt-type-list
-  :elt-type smt-type-p
+(deftagsum smt-datatype
+  (:basic ((recognizer smt-function-p :default (make-smt-function))))
+  (:sumtype ((kind maybe-smt-function-p)
+             (recognizer smt-function-p :default (make-smt-function))
+             (sums smt-sum-list-p)))
+  (:array ((recognizer smt-function-p :default (make-smt-function))
+           (key-type symbolp)
+           (val-type symbolp)
+           (init init-p :default (make-init))
+           (select smt-function-p :default (make-smt-function))
+           (store smt-function-p :default (make-smt-function))
+           (equal smt-function-p :default (make-smt-function))
+           (equal-witness smt-function-p :default (make-smt-function)))))
+
+(define smt-datatype->recognizer ((type smt-datatype-p))
+  :returns (rec smt-function-p)
+  (b* ((type (smt-datatype-fix type)))
+    (cond ((equal (smt-datatype-kind type) :basic)
+           (smt-datatype-basic->recognizer type))
+          ((equal (smt-datatype-kind type) :sumtype)
+           (smt-datatype-sumtype->recognizer type))
+          ((equal (smt-datatype-kind type) :array)
+           (smt-datatype-array->recognizer type)))))
+
+(deflist smt-datatype-list
+  :elt-type smt-datatype-p
   :true-listp t)
 
-(defoption maybe-smt-type
-  smt-type-p)
+(defoption maybe-smt-datatype
+  smt-datatype-p)
+
+(defprod smt-acl2type
+  ((recognizer symbolp)
+   (subtypes smt-sub/supertype-list-p :default nil)
+   (supertypes smt-sub/supertype-list-p :default nil)))
+
+(deflist smt-acl2type-list
+  :elt-type smt-acl2type-p
+  :true-listp t)
+
+(defalist symbol-smt-acl2type-alist
+  :key-type symbolp
+  :val-type smt-acl2type-p
+  :true-listp t)
 
 (defalist symbol-smt-function-alist
   :key-type symbolp
@@ -127,22 +170,16 @@
            (and (consp (assoc-equal x alst))
                 (smt-function-p (cdr (assoc-equal x alst))))))
 
-(defalist symbol-smt-type-alist
+(defalist symbol-smt-datatype-alist
   :key-type symbolp
-  :val-type smt-type-p
+  :val-type smt-datatype-p
   :true-listp t)
 
-(defthm assoc-equal-of-symbol-smt-type-alist
-  (implies (symbol-smt-type-alist-p alst)
-           (maybe-smt-type-p (cdr (assoc-equal x alst)))))
-
-(defprod smt-replace
-  ((fn symbolp)
-   (thms thm-spec-list-p)))
-
-(deflist smt-replace-list
-  :elt-type smt-replace-p
-  :true-listp t)
+(defthm assoc-equal-of-symbol-smt-datatype-alist
+  (implies (and (symbol-smt-datatype-alist-p alst)
+                (assoc-equal x alst))
+           (and (consp (assoc-equal x alst))
+                (smt-datatype-p (cdr (assoc-equal x alst))))))
 
 (defalist symbol-trans-hint-alist
   :key-type symbolp
@@ -156,16 +193,17 @@
                 (trans-hint-p (cdr (assoc-equal x alst))))))
 
 (defprod trusted-hint
-  ((user-fns symbol-trans-hint-alist-p)
-   (user-types symbol-smt-type-alist-p)))
+  ((user-types symbol-smt-datatype-alist-p)
+   (user-fns symbol-smt-function-alist-p)))
 
 (local (in-theory (disable symbol-listp)))
 
 (defprod smtlink-hint
   :parents (SMT-hint-interface)
   ((functions smt-function-list-p :default nil)
-   (types smt-type-list-p :default nil)
-   (replaces smt-replace-list-p :default nil)
+   (acl2types smt-acl2type-list-p :default nil)
+   (datatypes smt-datatype-list-p :default nil)
+   (replaces thm-spec-list-p :default nil)
    (hypotheses smt-hypo-list-p :default nil)
    (configurations smt-config-p :default (make-smt-config))
    (int-to-ratp int-to-rat-p :default (make-int-to-rat-switch :okp nil))
@@ -184,3 +222,11 @@
   (implies (and (smtlink-hint-alist-p alst)
                 (assoc-equal x alst))
            (smtlink-hint-p (cdr (assoc-equal x alst)))))
+
+;; type-alst could be symbol-symbol-alistp or type-to-types-alist-p
+(define is-type? ((type symbolp)
+                  (type-alst alistp))
+  :returns (ok booleanp)
+  (b* ((type-alst (acl2::alist-fix type-alst))
+       (type (symbol-fix type)))
+    (not (null (assoc-equal type type-alst)))))

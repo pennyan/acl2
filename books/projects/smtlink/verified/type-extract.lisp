@@ -11,8 +11,29 @@
 (include-book "std/util/define" :dir :system)
 (include-book "centaur/fty/top" :dir :system)
 
-(include-book "reorder-options")
+(include-book "extract-options")
 (include-book "extractor")
+
+(define filter-hypo-list ((hypo-lst pseudo-term-listp)
+                          (options extract-options-p))
+  :returns (new-hypo pseudo-term-listp)
+  :measure (len hypo-lst)
+  (b* ((hypo-lst (pseudo-term-list-fix hypo-lst))
+       (options (extract-options-fix options))
+       ((extract-options o) options)
+       ((unless (consp hypo-lst)) nil)
+       ((cons hypo-hd hypo-tl) hypo-lst)
+       ((if (and (type-predicate-p hypo-hd o.acl2type)
+                 (not (type-predicate-p hypo-hd o.datatype))))
+        (filter-hypo-list hypo-tl o)))
+    (cons hypo-hd (filter-hypo-list hypo-tl o))))
+
+(defthm correctness-of-filter-hypo-list
+  (implies (and (pseudo-term-listp hypo-lst)
+                (alistp a)
+                (ev-smtcp (conjoin hypo-lst) a))
+           (ev-smtcp (conjoin (filter-hypo-list hypo-lst options)) a))
+  :hints (("Goal" :in-theory (enable filter-hypo-list))))
 
 (define type-extract-cp ((cl pseudo-term-listp)
                          (smtlink-hint t))
@@ -20,8 +41,9 @@
   (b* ((cl (pseudo-term-list-fix cl))
        ((unless (smtlink-hint-p smtlink-hint)) (list cl))
        (goal (disjoin cl))
-       (options (construct-reorder-options smtlink-hint))
-       ((mv hypo-lst new-term) (extractor goal options))
+       (options (construct-extract-options smtlink-hint))
+       ((extract-options o) options)
+       ((mv hypo-lst new-term) (extractor goal o.alltype))
        ((mv okp & term-body)
         (case-match new-term
           (('if judges term-body ''t)
@@ -33,7 +55,8 @@
         (prog2$ (er hard? 'type-extract=>type-extract-fn
                     "The input term is of wrong shape.~%")
                 (list cl)))
-       (type-hyp-list `(type-hyp ,(conjoin hypo-lst) ':type))
+       (new-hypo-lst (filter-hypo-list hypo-lst options))
+       (type-hyp-list `(type-hyp ,(conjoin new-hypo-lst) ':type))
        (new-goal `(if ,type-hyp-list ,term-body 't))
        (next-cp (cdr (assoc-equal 'type-extract *SMT-architecture*)))
        ((if (null next-cp)) (list cl))
@@ -46,9 +69,10 @@
   (implies (and (pseudo-termp term)
                 (symbol-symbol-alistp type-info)
                 (alistp a))
-           (b* (((mv hypo-lst new-term) (extractor term type-info)))
-             (iff (ev-smtcp `(if (type-hyp ,(conjoin hypo-lst) ':type) ,new-term 't) a)
-                  (ev-smtcp term a))))
+           (b* (((mv hypo-lst new-term) (extractor term type-info))
+                (new-hypo-lst (filter-hypo-list hypo-lst options)))
+             (implies (ev-smtcp `(if (type-hyp ,(conjoin new-hypo-lst) ':type) ,new-term 't) a)
+                      (ev-smtcp term a))))
   :hints (("Goal"
            :do-not-induct t
            :in-theory (e/d (type-hyp) (correctness-of-extractor))
@@ -65,8 +89,11 @@
            (ev-smtcp (disjoin cl) a))
   :hints (("Goal"
            :do-not-induct t
-           :in-theory (e/d (type-extract-cp) (correctness-of-type-extract-cp-lemma))
+           :in-theory (e/d (type-extract-cp)
+                           (correctness-of-type-extract-cp-lemma))
            :use ((:instance correctness-of-type-extract-cp-lemma
                             (term (disjoin cl))
-                            (type-info (construct-reorder-options hint))))))
+                            (options (construct-extract-options hint))
+                            (type-info (extract-options->alltype
+                                        (construct-extract-options hint)))))))
   :rule-classes :clause-processor)

@@ -13,12 +13,27 @@
 (include-book "type-options")
 (include-book "lambda-substitution")
 (include-book "judgement-fns")
+(include-book "match-term")
 
 (set-state-ok t)
 
 (defprod replace-options
   ((supertype type-to-types-alist-p)
-   (replaces symbol-thm-spec-list-alist-p)))
+   (replaces thm-spec-list-p)))
+
+(define find-replaces ((tterm good-typed-term-p)
+                       (replaces thm-spec-list-p))
+  :returns (lst thm-spec-list-p)
+  :measure (len replaces)
+  (b* (((unless (mbt (good-typed-term-p tterm))) nil)
+       (tterm (typed-term-fix tterm))
+       (replaces (thm-spec-list-fix replaces))
+       ((unless (consp replaces)) nil)
+       ((cons re-hd re-tl) replaces)
+       ((thm-spec ts) re-hd)
+       (res (match-term tterm ts.lhs nil))
+       ((if (equal res :fail)) (find-replaces tterm re-tl)))
+    (cons re-hd (find-replaces tterm re-tl))))
 
 (define conjunct-to-list ((judge pseudo-termp)
                           (acc pseudo-term-listp))
@@ -49,6 +64,25 @@
        (thm-expanded (expand-lambda thm-raw))
        ((mv okp new-thm)
         (case-match thm-expanded
+          (('implies hypotheses ('if ('equal lhs rhs)
+                                    ('if ('var-term var-term)
+                                        ('if ('var-hyp var-hyp)
+                                            ('if ('hyp-judge hyp-judge)
+                                                judgements
+                                              ''nil)
+                                          ''nil)
+                                      ''nil)
+                                  ''nil))
+           (mv t (change-thm-spec
+                  thm
+                  :hypotheses hypotheses
+                  :lhs lhs
+                  :rhs rhs
+                  :judgements
+                  (conjunct-to-list judgements nil)
+                  :var-term var-term
+                  :var-hyp var-hyp
+                  :hyp-judge hyp-judge)))
           (('implies hypotheses ('if ('equal lhs rhs) judgements ''nil))
            (mv t (change-thm-spec
                   thm
@@ -69,7 +103,6 @@
                 thm)))
     new-thm))
 
-
 (define update-replace-list ((thms thm-spec-list-p) state)
   :returns (new-thms thm-spec-list-p)
   :measure (len thms)
@@ -79,27 +112,11 @@
     (cons (update-replace thm-hd state)
           (update-replace-list thm-tl state))))
 
-(define construct-replace-alist ((replace-lst smt-replace-list-p)
-                                 (acc symbol-thm-spec-list-alist-p)
-                                 state)
-  :returns (replace-alst symbol-thm-spec-list-alist-p)
-  :measure (len replace-lst)
-  (b* ((replace-lst (smt-replace-list-fix replace-lst))
-       (acc (symbol-thm-spec-list-alist-fix acc))
-       ((unless (consp replace-lst)) acc)
-       ((cons rep-hd rep-tl) replace-lst)
-       ((smt-replace r) rep-hd)
-       (exists? (assoc-equal r.fn acc))
-       ((if exists?) (construct-replace-alist rep-tl acc state))
-       (updated-thms (update-replace-list r.thms state))
-       (new-acc (acons r.fn updated-thms acc)))
-    (construct-replace-alist rep-tl new-acc state)))
-
 (define construct-replace-options ((hints smtlink-hint-p) state)
   :returns (type-alst replace-options-p)
   (b* ((hints (smtlink-hint-fix hints))
        ((smtlink-hint h) hints)
-       ((mv & supertype) (construct-sub/supertype-alist h.types))
-       (replace-alst (construct-replace-alist h.replaces nil state)))
+       ((mv & supertype) (construct-sub/supertype-alist h.acl2types))
+       (replace-lst (update-replace-list h.replaces state)))
     (make-replace-options :supertype supertype
-                          :replaces replace-alst)))
+                          :replaces replace-lst)))
