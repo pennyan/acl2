@@ -84,3 +84,15 @@
   )
 
 (verify-guards flatten-judge-term)
+
+(define flatten-judge ((tterm typed-term-p)
+                       (term-lst pseudo-term-listp))
+  :guard (good-typed-term-p tterm)
+  :returns (type-alst pseudo-term-alistp)
+  (b* (((unless (mbt (and (typed-term-p tterm)
+                          (good-typed-term-p tterm)
+                          (pseudo-term-listp term-lst))))
+        nil)
+       ((typed-term tt) tterm)
+       ((if (acl2::quotep tt.term)) nil))
+    (flatten-judge-term tterm term-lst nil)))
