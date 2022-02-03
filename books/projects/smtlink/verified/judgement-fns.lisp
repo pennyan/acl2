@@ -17,6 +17,7 @@
 
 (include-book "path-cond")
 (include-book "evaluator")
+(include-book "make-test")
 
 (set-state-ok t)
 
@@ -950,20 +951,19 @@ state)
       (& ''t))))
 )
 
-#|
-(defthm test (implies (integerp x) (rationalp x)))
-(defoption maybe-integerp integerp :pred maybe-integerp)
-(defthm test1 (implies (integerp x) (maybe-integerp x)))
-(defthm test2 (implies (and (maybe-integerp y) y) (integerp y)))
-(construct-one-super/subtype '(maybe-integerp x)
-                             (make-smt-sub/supertype :type 'integerp
-                                                     :formals '(y)
-                                                     :thm 'test2)
-                             `((maybe-integerp . (,(make-smt-sub/supertype :type 'integerp
-                                                                           :formals '(y)
-                                                                           :thm 'test2))))
-                             '(if x 't 'nil) state)
-|#
+(make-test
+  (equal (construct-one-super/subtype '(maybe-integerp x)
+			       (make-smt-sub/supertype :type 'integerp
+						       :formals '(y)
+						       :thm 'test2)
+			       `((maybe-integerp . (,(make-smt-sub/supertype :type 'integerp
+									     :formals '(y)
+									     :thm 'test2))))
+			       '(if x 't 'nil) state)
+	 '(integerp x))
+  :name construct-one-super/subtype__test
+  :prep ((defthm test2 (implies (and (maybe-integerp y) y) (integerp y))))
+  :output (:fail (:prep . :err) (:all . :warn)))
 
 (encapsulate ()
   (local
@@ -1060,39 +1060,50 @@ state)
                        `(if ,one ,acc 'nil)
                        state)))
 
-#|
-(construct-closure '(integerp x)
-                   `(,(make-smt-sub/supertype
-                       :type 'rationalp
-                       :formals '(x)
-                       :thm 'test)
-                     ,(make-smt-sub/supertype
-                       :type 'maybe-integerp
-                       :formals '(x)
-                       :thm 'test1))
-                   `((integerp . (,(make-smt-sub/supertype
-                                    :type 'rationalp
-                                    :formals '(x)
-                                    :thm 'test)
-                                  ,(make-smt-sub/supertype
-                                    :type 'maybe-integerp
-                                    :formals '(x)
-                                    :thm 'test1)))
-                     (rationalp . nil)
-                     (maybe-integerp . nil))
-                   ''t ''t state)
 
-(construct-closure '(maybe-integerp x)
-                   `(,(make-smt-sub/supertype
-                       :type 'integerp
-                       :formals '(y)
-                       :thm 'test2))
-                   `((maybe-integerp . (,(make-smt-sub/supertype
-                                          :type 'integerp
-                                          :formals '(y)
-                                          :thm 'test2))))
-                   '(if x 't 'nil) ''t state)
-|#
+(make-test
+  (equal (construct-closure '(integerp x)
+			    `(,(make-smt-sub/supertype
+				:type 'rationalp
+				:formals '(x)
+				:thm 'test)
+			      ,(make-smt-sub/supertype
+				:type 'maybe-integerp
+				:formals '(x)
+				:thm 'test1))
+			    `((integerp . (,(make-smt-sub/supertype
+					     :type 'rationalp
+					     :formals '(x)
+					     :thm 'test)
+					   ,(make-smt-sub/supertype
+					     :type 'maybe-integerp
+					     :formals '(x)
+					     :thm 'test1)))
+			      (rationalp . nil)
+			      (maybe-integerp . nil))
+			    ''t ''t state)
+	 '(if (maybe-integerp x) (if (rationalp x) 't 'nil) 'nil))
+  :name construct-closure__test1
+  :prep (
+    (defthm test (implies (integerp x) (rationalp x)))
+    (defthm test1 (implies (integerp x) (maybe-integerp x))))
+  :output (:fail (:prep . :err) (:all . :warn)))
+
+(make-test
+  (equal (construct-closure '(maybe-integerp x)
+			    `(,(make-smt-sub/supertype
+				:type 'integerp
+				:formals '(y)
+				:thm 'test2))
+			    `((maybe-integerp . (,(make-smt-sub/supertype
+						   :type 'integerp
+						   :formals '(y)
+						   :thm 'test2))))
+			    '(if x 't 'nil) ''t state)
+	 '(if (integerp x) 't 'nil))
+  :name construct-closure__test2
+  :prep ((defthm test2 (implies (and (maybe-integerp y) y) (integerp y))))
+  :output (:fail (:prep . :err) (:all . :warn)))
 
 (defthm correctness-of-construct-closure
   (implies (and (ev-smtcp-meta-extract-global-facts)
@@ -1178,29 +1189,45 @@ state)
 
 (verify-guards super/subtype)
 
-#|
-(super/subtype '(integerp x) ''t
-               `((integerp . (,(make-smt-sub/supertype
-                                :type 'rationalp
-                                :formals '(x)
-                                :thm 'test)
-                              ,(make-smt-sub/supertype
-                                :type 'maybe-integerp
-                                :formals '(x)
-                                :thm 'test1)))
-                 (rationalp . nil)
-                 (maybe-integerp . nil))
-               ''t 4 state)
+(make-test
+  (equal (super/subtype '(integerp x) ''t
+			`((integerp . (,(make-smt-sub/supertype
+					 :type 'rationalp
+					 :formals '(x)
+					 :thm 'test)
+				       ,(make-smt-sub/supertype
+					 :type 'maybe-integerp
+					 :formals '(x)
+					 :thm 'test1)))
+			  (rationalp . nil)
+			  (maybe-integerp . nil))
+			''t 4 state)
+	 '(if (rationalp x)
+	      (if (maybe-integerp x)
+		  (if (integerp x) 't 'nil)
+		  'nil)
+	      'nil))
+  :name super/subtype__test1
+  :prep (
+    (defthm test (implies (integerp x) (rationalp x)))
+    (defthm test1 (implies (integerp x) (maybe-integerp x))))
+  :output (:fail (:prep . :err) (:all . :warn)))
 
-(super/subtype '(maybe-integerp x) '(if x 't 'nil)
-               `((integerp . nil)
-                 (rationalp . nil)
-                 (maybe-integerp . (,(make-smt-sub/supertype
-                                      :type 'integerp
-                                      :formals '(y)
-                                      :thm 'test2))))
-               ''t 4 state)
-|#
+(make-test
+  (equal (super/subtype '(maybe-integerp x) '(if x 't 'nil)
+			`((integerp . nil)
+			  (rationalp . nil)
+			  (maybe-integerp . (,(make-smt-sub/supertype
+					       :type 'integerp
+					       :formals '(y)
+					       :thm 'test2))))
+			''t 4 state)
+	 '(if (integerp x)
+	      (if (maybe-integerp x) 't 'nil)
+	      'nil))
+  :name super/subtype__test1
+  :prep ((defthm test2 (implies (and (maybe-integerp y) y) (integerp y))))
+  :output (:fail (:prep . :err) (:all . :warn)))
 
 (encapsulate ()
   (local (in-theory (disable symbol-listp
@@ -1304,29 +1331,46 @@ state)
   :hints (("Goal"
            :in-theory (enable super/subtype-judgements-fn))))
 
-#|
-(super/subtype-judgements-fn '(if (integerp x) 't 'nil) ''t
-                             `((integerp . (,(make-smt-sub/supertype
-                                              :type 'rationalp
-                                              :formals '(x)
-                                              :thm 'test)
-                                            ,(make-smt-sub/supertype
-                                              :type 'maybe-integerp
-                                              :formals '(x)
-                                              :thm 'test1)))
-                               (rationalp . nil)
-                               (maybe-integerp . nil))
-                             state)
+(make-test
+  (equal (super/subtype-judgements-fn
+	   '(if (integerp x) 't 'nil) ''t
+	   `((integerp . (,(make-smt-sub/supertype
+			     :type 'rationalp
+			     :formals '(x)
+			     :thm 'test)
+			   ,(make-smt-sub/supertype
+			      :type 'maybe-integerp
+			      :formals '(x)
+			      :thm 'test1)))
+	     (rationalp . nil)
+	     (maybe-integerp . nil))
+	   state)
+	 '(if (rationalp x)
+	      (if (maybe-integerp x)
+		  (if (integerp x) 't 'nil)
+		  'nil)
+	      'nil))
+  :name super/subtype-judgements-fn__test1
+  :prep (
+    (defthm test (implies (integerp x) (rationalp x)))
+    (defthm test1 (implies (integerp x) (maybe-integerp x))))
+  :output (:fail (:prep . :err) (:all . :warn)))
 
-(super/subtype-judgements-fn '(if (maybe-integerp x) 't 'nil) '(if x 't 'nil)
-                             `((integerp . nil)
-                               (rationalp . nil)
-                               (maybe-integerp . (,(make-smt-sub/supertype
-                                                    :type 'integerp
-                                                    :formals '(y)
-                                                    :thm 'test2))))
-                             state)
-|#
+(make-test
+  (equal (super/subtype-judgements-fn
+	   '(if (maybe-integerp x) 't 'nil) '(if x 't 'nil)
+	   `((integerp . nil)
+	     (rationalp . nil)
+	     (maybe-integerp . (,(make-smt-sub/supertype
+				   :type 'integerp
+				   :formals '(y)
+				   :thm 'test2))))
+	   state)
+	 '(if (integerp x) (if (maybe-integerp x) 't 'nil) 'nil))
+  :name super/subtype-judgements-fn__test2
+  :prep ((defthm test2 (implies (and (maybe-integerp y) y) (integerp y))))
+  :output (:fail (:prep . :err) (:all . :warn)))
+
 
 (defmacro super/subtype-judgements (judgements path-cond type-alst state
                                                &key which)
@@ -1336,31 +1380,50 @@ state)
      (super/subtype-judgements-fn ,judgements ,path-cond
                                   ,type-alst ,state)))
 
-#|
-(super/subtype-judgements '(if (integerp x) 't 'nil) ''t
-                          `((integerp . (,(make-smt-sub/supertype
-                                           :type 'rationalp
-                                           :formals '(x)
-                                           :thm 'test)
-                                         ,(make-smt-sub/supertype
-                                           :type 'maybe-integerp
-                                           :formals '(x)
-                                           :thm 'test1)))
-                             (rationalp . nil)
-                             (maybe-integerp . nil))
-                          state
-                          :which :super)
+(make-test
+  (equal (super/subtype-judgements
+	   '(if (integerp x) 't 'nil) ''t
+	   `((integerp . (,(make-smt-sub/supertype
+			     :type 'rationalp
+			     :formals '(x)
+			     :thm 'test)
+			   ,(make-smt-sub/supertype
+			      :type 'maybe-integerp
+			      :formals '(x)
+			      :thm 'test1)))
+	     (rationalp . nil)
+	     (maybe-integerp . nil))
+	   state
+	   :which :super)
+	 '(if (rationalp x)
+	      (if (maybe-integerp x)
+		  (if (integerp x) 't 'nil)
+		  'nil)
+	      'nil))
+  :name super/subtype-judgements__test1
+  :prep (
+    (defthm test (implies (integerp x) (rationalp x)))
+    (defthm test1 (implies (integerp x) (maybe-integerp x))))
+  :output (:fail (:prep . :err) (:all . :warn)))
+	 
 
-(super/subtype-judgements '(if (maybe-integerp x) 't 'nil) '(if x 't 'nil)
-                          `((integerp . nil)
-                            (rationalp . nil)
-                            (maybe-integerp . (,(make-smt-sub/supertype
-                                                 :type 'integerp
-                                                 :formals '(y)
-                                                 :thm 'test2))))
-                          state
-                          :which :sub)
-|#
+(make-test
+  (equal (super/subtype-judgements
+	   '(if (maybe-integerp x) 't 'nil) '(if x 't 'nil)
+	   `((integerp . nil)
+	     (rationalp . nil)
+	     (maybe-integerp . (,(make-smt-sub/supertype
+				   :type 'integerp
+				   :formals '(y)
+				   :thm 'test2))))
+	   state
+	   :which :sub)
+	 '(if (integerp x)
+	      (if (maybe-integerp x) 't 'nil)
+	      'nil))
+  :name super/subtype-judgements__test2
+  :prep ((defthm test2 (implies (and (maybe-integerp y) y) (integerp y))))
+  :output (:fail (:prep . :err) (:all . :warn)))
 
 ;; extend-judgements first calculate the subtypes then it calculate the
 ;; supertypes
