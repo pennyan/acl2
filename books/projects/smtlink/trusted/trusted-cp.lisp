@@ -42,13 +42,15 @@
            (smtlink-hint (change-smtlink-hint smtlink-hint :smt-cnf smt-cnf))
            ((mv res smt-precond state)
             (SMT-prove-stub (disjoin cl) smtlink-hint state))
-           (subgoal-lst `(((hint-please
-                            '(:in-theory (enable magic-fix
-                                                 hint-please
-                                                 type-hyp)
-                              :expand ((:free (x) (hide x)))))
-                           ,smt-precond
-                           ,(disjoin cl)))))
+           (subgoal-lst (if (smtlink-hint->evilp smtlink-hint)
+                            nil
+                          `(((hint-please
+                              '(:in-theory (enable magic-fix
+                                                   hint-please
+                                                   type-hyp)
+                                           :expand ((:free (x) (hide x)))))
+                             ,smt-precond
+                             ,(disjoin cl))))))
         (if res
             (prog2$ (cw "Proved!~%") (mv nil subgoal-lst state))
           (mv (cons "NOTE: Unable to prove goal with ~

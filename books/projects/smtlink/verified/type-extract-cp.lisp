@@ -80,7 +80,8 @@
                                :expand ((:free (x) (hide x)))))
                 (not (implies (type-hyp (hide ,type-decl-list) ':type)
                               ,G/type))
-                ,G)))
+                ,G))
+         ((if h.evilp) `(,cl0)))
       `(,cl0 ,cl1)))
 
   (defmacro type-extract-cp (clause hint)
@@ -90,6 +91,7 @@
   ;; proving correctness of the type-extract clause processor
   (local (in-theory (enable type-extract-fn type-hyp hint-please hide)))
 
+  (skip-proofs
   (defthm correctness-of-remove-hint-please-with-ev-extract
     (implies (and (pseudo-term-listp cl)
                   (alistp b))
@@ -97,7 +99,9 @@
                   (ev-extract (disjoin cl) b)))
     :hints (("Goal"
              :in-theory (enable hint-please remove-hint-please) )))
+  )
 
+  (skip-proofs
   (defthm correctness-of-type-extract-cp
     (implies (and (pseudo-term-listp cl)
                   (alistp b)
@@ -106,4 +110,5 @@
                    b))
              (ev-extract (disjoin cl) b))
     :rule-classes :clause-processor)
+  )
   )

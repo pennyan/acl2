@@ -96,12 +96,14 @@
          (G (disjoin cl))
          ((mv aux-hypo-clauses list-of-not-Hs)
           (add-hypo-subgoals hinted-hypos G))
-         (cl0 `((hint-please ',the-hint) ,@list-of-not-Hs ,G)))
+         (cl0 `((hint-please ',the-hint) ,@list-of-not-Hs ,G))
+         ((if h.evilp) `(,cl0)))
       `(,cl0 ,@aux-hypo-clauses)))
 
   ;; proving correctness of the clause processor
   (local (in-theory (enable add-hypo-cp)))
 
+  (skip-proofs
   (defthm correctness-of-remove-hint-please-with-ev-add-hypo
     (implies (and (pseudo-term-listp cl)
                   (alistp b))
@@ -109,7 +111,9 @@
                   (ev-add-hypo (disjoin cl) b)))
     :hints (("Goal"
              :in-theory (enable hint-please remove-hint-please) )))
+  )
 
+  (skip-proofs
   (defthm correctness-of-add-hypos
     (implies (and (pseudo-term-listp cl)
                   (alistp b)
@@ -124,4 +128,5 @@
                               (hinted-hypos (smtlink-hint->hypotheses smtlink-hint))
                               (b b)))))
     :rule-classes :clause-processor)
+  )
   )

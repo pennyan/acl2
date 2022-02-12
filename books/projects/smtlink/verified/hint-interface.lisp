@@ -285,6 +285,7 @@
      (fty-info fty-info-alist-p :default nil)
      (fty-types fty-types-p :default nil)
      (int-to-rat booleanp :default nil)
+     (evilp booleanp :default nil)
      (smt-dir stringp :default "")
      (rm-file booleanp :default t)
      (smt-fname stringp :default "")

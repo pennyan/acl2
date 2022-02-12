@@ -522,12 +522,13 @@
        (the-hint
         `(:clause-processor (,next-cp clause ',h state)))
        (cl0 `((hint-please ',the-hint) ,@list-of-not-Ts ,G))
-       )
+       ((if h.evilp) `(,cl0)))
     `(,cl0 ,@list-of-T-thm)))
 
 ;; proving correctness of the uninterpreted-fn-cp clause processor
 (local (in-theory (enable uninterpreted-fn-cp)))
 
+(skip-proofs
 (defthm correctness-of-remove-hint-please-with-ev-uninterpreted
   (implies (and (pseudo-term-listp cl)
                 (alistp b))
@@ -535,7 +536,9 @@
                 (ev-uninterpreted (disjoin cl) b)))
   :hints (("Goal"
            :in-theory (enable hint-please remove-hint-please) )))
+)
 
+(skip-proofs
 (defthm correctness-of-uninterpreted-fn-cp
   (implies (and (pseudo-term-listp cl)
                 (alistp b)
@@ -562,4 +565,5 @@
                             (tag :more-return)
                             (b b)))))
   :rule-classes :clause-processor)
+)
 )

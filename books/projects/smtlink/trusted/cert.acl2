@@ -5,4 +5,4 @@
 ;; See the LICENSE file distributed with ACL2
 
 (include-book "../portcullis")
-; cert-flags: ? t :ttags :all
+; cert-flags: ? t :ttags :all :skip-proofs-okp t

@@ -724,6 +724,7 @@
       (:main-hint . hints-syntax-p)
       (:fty . symbol-listp)
       (:int-to-rat . booleanp)
+      (:evilp . booleanp)
       (:smt-fname . stringp)
       (:smt-dir . stringp)
       (:rm-file . booleanp)
@@ -1297,6 +1298,15 @@
          (new-hint (change-smtlink-hint hint :fty content)))
       new-hint))
 
+  (define set-evilp ((content booleanp)
+                     (hint smtlink-hint-p))
+    :parents (process-smtlink-hints)
+    :returns (new-hint smtlink-hint-p)
+    :short "Set :evilp based on user hint."
+    (b* ((hint (smtlink-hint-fix hint))
+         (new-hint (change-smtlink-hint hint :evilp content)))
+      new-hint))
+
   (define set-int-to-rat ((content booleanp)
                           (hint smtlink-hint-p))
     :parents (process-smtlink-hints)
@@ -1392,6 +1402,7 @@
                      (:main-hint (merge-main-hint second hint))
                      (:fty (set-fty-types second hint))
                      (:int-to-rat (set-int-to-rat second hint))
+                     (:evilp (set-evilp second hint))
                      (:smt-fname (set-fname second hint))
                      (:smt-dir (set-smt-dir second hint))
                      (:rm-file (set-rm-file second hint))

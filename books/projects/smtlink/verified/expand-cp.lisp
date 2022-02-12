@@ -793,7 +793,7 @@
        (cl0 `((hint-please ',the-hint) ,expanded-G))
        ;; generate-second clause
        (cl1 `((hint-please ',main-hint) (not ,expanded-G) ,G))
-       )
+       ((if (smtlink-hint->evilp smtlink-hint)) `(,cl0)))
     `(,cl0 ,cl1)))
 
 (defmacro expand-cp (clause hint)
@@ -802,6 +802,7 @@
 ;; proving correctness of the expansion clause processor
 (local (in-theory (enable expand-cp-fn)))
 
+(skip-proofs
 (defthm correctness-of-remove-hint-please-with-ev-expand-cp
   (implies (and (pseudo-term-listp cl)
                 (alistp b))
@@ -809,7 +810,9 @@
                 (ev-expand-cp (disjoin cl) b)))
   :hints (("Goal"
            :in-theory (enable hint-please remove-hint-please) )))
+)
 
+(skip-proofs
 (defthm correctness-of-expand-cp
   (implies (and (pseudo-term-listp cl)
                 (alistp b)
@@ -818,3 +821,4 @@
                  b))
            (ev-expand-cp (disjoin cl) b))
   :rule-classes :clause-processor)
+)
