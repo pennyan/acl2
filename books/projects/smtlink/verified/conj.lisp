@@ -51,7 +51,11 @@ of @('x').
   (more-returns
     (ok :name pseudo-termp-when-conj-p
 	(implies ok (pseudo-termp x))
-	:rule-classes (:rewrite :forward-chaining))))
+	:rule-classes (:rewrite :forward-chaining))
+    (ok :name booleanp-of-ev-smtcp-when-conj-p
+     (implies (and ok (alistp env))
+	      (booleanp (ev-smtcp x env)))
+     :hints(("Goal" :in-theory (enable conj-p))))))
 
 (define conj-fix ((x conj-p))
   :short "Coerce to a @(see conj-p)."
@@ -81,10 +85,18 @@ of @('x').
     (ok :name car-is-if-when-conj-consp
 	(implies ok (equal (car x) 'if))
 	:hints(("Goal" :expand ((conj-p x))))
-	:rule-classes (:rewrite :forward-chaining))
-    ))
+	:rule-classes (:rewrite :forward-chaining))))
 
 (local (in-theory (enable conj-p conj-consp)))
+
+(define conj-atom ((x acl2::any-p)) ; I want to know that if x is a conj-p
+  :returns (ok booleanp)  ; not a conj-consp, then (equal x ''t).  But, I
+  (equal x ''t)           ; can't have a rewrite rule with a conclusion of (equal x ''t);
+  ///                     ; so, I'll introduce conj-atom instead.
+  (more-returns
+    (ok :name conj-atom-when-conj-p-and-not-conj-consp
+	(implies (and (conj-p x) (not (conj-consp x)))
+		 ok))))
 
 (define conj-car ((x conj-p))
   :short "extract the first conjunct of a @(see conj-p) object"
@@ -282,14 +294,14 @@ of @('x').
   :equiv conj-conj-equiv
   :define t)
 
+
 (define conj-list-fn ((args pseudo-term-listp))
-  :returns (x conj-p)
   (if (consp args)
-    (conj-cons (car args) (conj-list-fn (cdr args)))
-    ''t))
+    `(conj-cons ,(car args) ,(conj-list-fn (cdr args)))
+    '''t))
 
 (defmacro conj-list (&rest args)
-  (kwote (conj-list-fn args)))
+  (conj-list-fn args))
 
 (define conj-list*-fn ((args pseudo-term-listp))
   :guard (and (consp args) (conj-p (car (last args))))
