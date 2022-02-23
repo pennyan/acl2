@@ -1883,7 +1883,16 @@
                    (:functions (merge-functions second hint))
                    (:hypotheses (merge-hypotheses second hint))
                    (:acl2types (merge-acl2types second hint))
-                   (:datatypes (merge-datatypes second hint))
+                   (:datatypes
+                    (b* ((datatype-hint (merge-datatypes second hint))
+                         ((smtlink-hint h) datatype-hint)
+                         (type (unique-destructor-list h.datatypes))
+                         ((if type)
+                          (prog2$ (er hard? 'process=>combine-hints
+                                      "Found destructors of the same name ~q0"
+                                      type)
+                                  hint)))
+                      h))
                    (:replaces (merge-replaces second hint))
                    (:int-to-ratp (set-int-to-rat second hint))
                    (:under-inductionp (set-under-induct second hint))

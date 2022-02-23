@@ -209,13 +209,13 @@
   (b* ((cl (pseudo-term-list-fix cl))
        ((unless (smtlink-hint-p hints)) (value (list cl)))
        (goal (disjoin cl))
-       ((mv okp judges tterm)
+       ((mv okp tterm)
         (case-match goal
           (('implies judges term)
-           (mv t judges (make-typed-term :term term
-                                         :path-cond ''t
-                                         :judgements judges)))
-          (& (mv nil ''t (make-typed-term)))))
+           (mv t (make-typed-term :term term
+                                  :path-cond ''t
+                                  :judgements judges)))
+          (& (mv nil (make-typed-term)))))
        ((unless okp)
         (prog2$ (er hard? 'hint-generation=>hint-generation-cp
                     "The input term is of wrong shape.~%")
