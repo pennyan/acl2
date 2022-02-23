@@ -80,7 +80,7 @@
        ((unless (consp arrays)) (mv nil acc))
        ((cons array-hd array-tl) arrays)
        ((cons & type) array-hd)
-       ((unless (equal (smt-datatype-kind type) :array)) (mv nil nil))
+       ((unless (equal (smt-datatype-kind type) :array)) (mv nil acc))
        (array-decl (create-array-type type h.user-types))
        (array-init (create-array-init type h))
        (acc-1 (datatype-property type acc))

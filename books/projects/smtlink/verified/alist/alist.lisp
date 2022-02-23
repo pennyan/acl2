@@ -169,6 +169,9 @@
 	     :name car-when-ar-key-val-alist-p
 	     :rule-classes (:rewrite (:forward-chaining :trigger-terms ((ar-key-val-alist-p x))))
 	     :hints(("Goal" :in-theory (enable ar-key-val-alist-p))))
+   (ok (implies (and ok (ar-key-p k) (ar-val-p v))
+                (ar-key-val-alist-p (acons k v x)))
+       :name ar-key-val-alist-p-of-acons)
    (ok (implies (and (ar-key-p k) ok) (ar-maybe-key-val-consp (assoc-equal k x)))
        :name ar-maybe-key-val-consp-of-assoc-equal-of-ar-key-val-alist-p)))
 

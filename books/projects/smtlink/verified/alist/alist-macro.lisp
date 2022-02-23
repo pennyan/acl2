@@ -162,6 +162,7 @@
               booleanp-of-key-val-alist-p
               key-val-alist-p-of-key-val-alist-fix
               replace-of-key-val-alist-fix
+              key-val-alist-p-of-acons
               maybe-key-val-consp-of-assoc-equal-of-key-val-alist-p
 	            booleanp-of-key-val-array-p
 	            key-val-array-p-of-key-val-array-init
@@ -220,6 +221,7 @@
                          `(booleanp of ,key-val-alist-p)
                          `(,key-val-alist-p of ,key-val-alist-fix)
                          `(replace of ,key-val-alist-fix)
+                         `(,key-val-alist-p of acons)
                          `(,maybe-key-val-consp of assoc-equal of ,key-val-alist-p)
 	                       `(booleanp of ,key-val-array-p)
 	                       `(,key-val-array-p of ,key-val-array-init)
@@ -506,6 +508,10 @@
                         (implies (kvap x)
                                  (equal (kva-fix x) x))
                         replace-of-ar-key-val-alist-fix)
+
+                (fi-thm kvap-of-acons
+                        (implies (and (kvap x) (kp k) (vp v)) (kvap (acons k v x)))
+                        ar-key-val-alist-p-of-acons)
 
                 (fi-thm mkvp-of-assoc-equal-of-kvap
                         (implies (and (kp k) (kvap x)) (mkvp (assoc-equal k x)))
@@ -1031,6 +1037,14 @@
                 :hints(("Goal" :in-theory '(replace-of-kva-fix
                                             ,key-val-alist-p-equals-kvap
                                             ,key-val-alist-fix-equals-kva-fix)))))
+
+       (local (defthmd ,key-val-alist-p-of-acons
+                (implies (and (,key-val-alist-p x) (,key-p k) (,val-p v))
+                         (,key-val-alist-p (acons k v x)))
+                :hints (("Goal"
+                         :in-theory '(kvap-of-acons
+                                      ,key-p-equals-kp ,val-p-equals-vp
+                                      ,key-val-alist-p-equals-kvap)))))
 
        (local (defthmd ,maybe-key-val-consp-of-assoc-equal-of-key-val-alist-p
                 (implies (and (,key-p k) (,key-val-alist-p x))

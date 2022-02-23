@@ -12,6 +12,8 @@
 
 (include-book "sumtype-property")
 (include-book "array-property")
+(include-book "abstract-property")
+(include-book "basic-property")
 
 (define datatype-property ((type smt-datatype-p)
                            (acc pseudo-term-list-listp))
@@ -21,4 +23,7 @@
     (cond ((equal (smt-datatype-kind type) :sumtype)
            (sumtype-property type acc))
           ((equal (smt-datatype-kind type) :array)
-           (array-property type acc)))))
+           (array-property type acc))
+          ((equal (smt-datatype-kind type) :abstract)
+           (abstract-property type acc))
+          (t (basic-property type acc)))))

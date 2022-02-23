@@ -30,7 +30,7 @@
        ((cons formal formal-type) formal-hd))
     `(if (,formal-type ,formal)
          ,(construct-formal-types formal-tl)
-       ''nil)))
+       'nil)))
 
 (local
  (defthm crock2

@@ -27,9 +27,6 @@
                          (supertype type-to-types-alist-p))
   :returns (type symbolp)
   (b* ((term (pseudo-term-fix term))
-       (- (cw "term: ~q0" term))
-       (- (cw "judge: ~q0" judge))
-       (- (cw "supertype: ~q0" supertype))
        (judge (pseudo-term-fix judge))
        (supertype (type-to-types-alist-fix supertype))
        (type-pred-list (look-up-type-predicate term judge supertype))
@@ -219,7 +216,6 @@
                                          :path-cond ''t
                                          :judgements judges)))
           (& (mv nil ''t (make-typed-term)))))
-       (- (cw "judges: ~q0" judges))
        ((unless okp)
         (prog2$ (er hard? 'hint-generation=>hint-generation-cp
                     "The input term is of wrong shape.~%")

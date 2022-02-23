@@ -17,13 +17,19 @@
 (include-book "translate-quote")
 (include-book "translate-sumtype")
 (include-book "translate-array")
+(include-book "translate-abstract")
 
-(local (in-theory (enable paragraph-p word-p string-or-symbol-p)))
+(local (in-theory (e/d (paragraph-p word-p string-or-symbol-p)
+                       (pseudo-termp
+                        consp-of-pseudo-lambdap
+                        pseudo-lambdap-of-fn-call-of-pseudo-termp
+                        true-list-listp))))
 
 (defprod assort-type
   ((basic symbol-smt-datatype-alist-p)
    (sumtype symbol-smt-datatype-alist-p)
-   (array symbol-smt-datatype-alist-p)))
+   (array symbol-smt-datatype-alist-p)
+   (abstract symbol-smt-datatype-alist-p)))
 
 (define assort-type-list ((types symbol-smt-datatype-alist-p)
                           (acc assort-type-p))
@@ -39,7 +45,9 @@
                        (change-assort-type acc :basic (acons name type a.basic)))
                       ((equal (smt-datatype-kind type) :sumtype)
                        (change-assort-type acc :sumtype (acons name type a.sumtype)))
-                      (t (change-assort-type acc :array (acons name type a.array))))))
+                      ((equal (smt-datatype-kind type) :array)
+                       (change-assort-type acc :array (acons name type a.array)))
+                      (t (change-assort-type acc :abstract (acons name type a.abstract))))))
     (assort-type-list type-tl new-acc)))
 
 (define create-datatypes ((hint trusted-hint-p)
@@ -51,5 +59,6 @@
        ((assort-type at) (assort-type-list h.user-types (make-assort-type)))
        ((mv trans1 prop1)
         (create-sumtype-list-top at.sumtype symbol-map h.user-types))
-       ((mv trans2 prop2) (create-array-list at.array h prop1)))
-    (mv `(,trans1 ,trans2) prop2)))
+       ((mv trans2 prop2) (create-array-list at.array h prop1))
+       ((mv trans3 prop3) (create-abstract-list at.abstract prop2)))
+    (mv `(,trans1 ,trans2 ,trans3) prop3)))

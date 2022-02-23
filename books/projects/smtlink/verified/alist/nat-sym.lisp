@@ -275,6 +275,10 @@
                           (equal (kva-fix x) x))
                  replace-of-ar-key-val-alist-fix)
 
+         (fi-thm kvap-of-acons
+                 (implies (and (kvap x) (kp k) (vp v)) (kvap (acons k v x)))
+                 ar-key-val-alist-p-of-acons)
+
          (fi-thm mkvp-of-assoc-equal-of-kvap
                  (implies (and (kp k) (kvap x)) (mkvp (assoc-equal k x)))
                  ar-maybe-key-val-consp-of-assoc-equal-of-ar-key-val-alist-p)
@@ -796,6 +800,14 @@
          :hints(("Goal" :in-theory '(replace-of-kva-fix
                                      nat-sym-alist-p-equals-kvap
                                      nat-sym-alist-fix-equals-kva-fix)))))
+
+(local (defthmd nat-sym-alist-p-of-acons
+         (implies (and (nat-sym-alist-p x) (natp k) (symbolp v))
+                  (nat-sym-alist-p (acons k v x)))
+         :hints (("Goal"
+                  :in-theory '(kvap-of-acons
+                               natp-equals-kp symbolp-equals-vp
+                               nat-sym-alist-p-equals-kvap)))))
 
 (local (defthmd maybe-nat-sym-consp-of-assoc-equal-of-nat-sym-alist-p
          (implies (and (natp k) (nat-sym-alist-p x))

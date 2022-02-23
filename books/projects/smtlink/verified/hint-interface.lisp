@@ -126,7 +126,8 @@
            (select smt-function-p :default (make-smt-function))
            (store smt-function-p :default (make-smt-function))
            (equal smt-function-p :default (make-smt-function))
-           (equal-witness smt-function-p :default (make-smt-function)))))
+           (equal-witness smt-function-p :default (make-smt-function))))
+  (:abstract ((recognizer smt-function-p :default (make-smt-function)))))
 
 (define smt-datatype->recognizer ((type smt-datatype-p))
   :returns (rec smt-function-p)
@@ -136,7 +137,9 @@
           ((equal (smt-datatype-kind type) :sumtype)
            (smt-datatype-sumtype->recognizer type))
           ((equal (smt-datatype-kind type) :array)
-           (smt-datatype-array->recognizer type)))))
+           (smt-datatype-array->recognizer type))
+          ((equal (smt-datatype-kind type) :abstract)
+           (smt-datatype-abstract->recognizer type)))))
 
 (deflist smt-datatype-list
   :elt-type smt-datatype-p

@@ -16,6 +16,7 @@
 (include-book "hint-please")
 (include-book "basics")
 (include-book "evaluator")
+(include-book "unique-destructors")
 
 ;; (defsection Smtlink-process-user-hint
 ;;   :parents (verified)
@@ -868,6 +869,99 @@
     :true-listp t)
   )
 
+(defsection abstract-option-syntax
+  :parents (abstract-syntax)
+
+  (define abstract-option-syntax-p-helper ((term t) (used symbol-listp))
+    :returns (ok booleanp)
+    :short "Helper function for abstract-option-syntax."
+    (b* ((used (symbol-list-fix used))
+         ((unless (consp term)) t)
+         ((unless (and (consp term) (consp (cdr term)))) nil)
+         ((list* first second rest) term)
+         ((if (member-equal first used))
+          (er hard? 'process=>abstract-option-syntax-p-helper
+              "~p0 option is already defined in the hint.~%" first))
+         (first-ok
+          (case first
+            (:recognizer (function-syntax-p second))
+            (t (er hard? 'process=>abstract-option-syntax-p-helper
+                   "Smtlink-hint abstract datatype option doesn't include: ~p0.
+                       It is :recognizer.~%"
+                   first)))))
+      (and first-ok
+           (abstract-option-syntax-p-helper rest (cons first used))))
+    ///
+    (more-returns
+     (ok (implies (and ok (consp term) (symbol-listp used))
+                  (and (consp (cdr term))
+                       (implies (equal (car term) :recognizer)
+                                (function-syntax-p (cadr term)))))
+         :hints (("Goal"
+                  :expand (abstract-option-syntax-p-helper term used)))
+         :name definition-of-abstract-option-syntax-p-helper)
+     (ok (implies (and (and ok (consp term) (symbol-listp used)))
+                  (equal (car term) :recognizer))
+         :hints (("Goal"
+                  :expand (abstract-option-syntax-p-helper term used)))
+         :name option-of-abstract-option-syntax-p-helper))
+    (defthm monotonicity-of-abstract-option-syntax-p-helper
+      (implies (and (subsetp used-1 used :test 'equal)
+                    (abstract-option-syntax-p-helper term used))
+               (abstract-option-syntax-p-helper term used-1))))
+
+  (defthm monotonicity-of-abstract-option-syntax-p-helper-corollary
+    (implies (abstract-option-syntax-p-helper term used)
+             (abstract-option-syntax-p-helper term nil))
+    :hints (("Goal"
+             :in-theory (disable monotonicity-of-abstract-option-syntax-p-helper)
+             :use ((:instance monotonicity-of-abstract-option-syntax-p-helper
+                              (used used)
+                              (used-1 nil))))))
+
+  (define abstract-option-syntax-p ((term t))
+    :returns (ok booleanp)
+    :short "Recoginizer for abstract-option-syntax."
+    (abstract-option-syntax-p-helper term nil)
+    ///
+    (more-returns
+     (ok (implies (and ok (consp term))
+                  (and (consp (cdr term))
+                       (implies (equal (car term) :recognizer)
+                                (function-syntax-p (cadr term)))))
+         :name definition-of-abstract-option-syntax-p)
+     (ok (implies (and (and ok (consp term)))
+                  (equal (car term) :recognizer))
+         :name option-of-abstract-option-syntax-p)
+     (ok (implies (and ok (consp term))
+                  (abstract-option-syntax-p (cddr term)))
+         :hints (("Goal"
+                  :expand (abstract-option-syntax-p-helper term nil)))
+         :name monotonicity-of-abstract-option-syntax-p)))
+
+  (easy-fix abstract-option-syntax nil)
+  )
+
+(defsection abstract-syntax
+  :parents (datatype-syntax)
+
+  (define abstract-syntax-p ((term t))
+    :returns (syntax-good? booleanp)
+    :short "Recognizer for abstract-syntax."
+    (b* (((unless (true-listp term)) nil)
+         ((unless (consp term)) nil)
+         ((cons tname type-options) term))
+      (and (symbolp tname)
+           (abstract-option-syntax-p type-options))))
+
+  (easy-fix abstract-syntax '(array))
+
+  (deflist abstract-list-syntax
+    :elt-type abstract-syntax-p
+    :pred abstract-list-syntax-p
+    :true-listp t)
+  )
+
 (defsection datatype-suntax
   :parents (Smtlink-process-user-hint)
 
@@ -885,9 +979,10 @@
           (case first
             (:sumtypes (sumtype-list-syntax-p second))
             (:arrays (array-list-syntax-p second))
+            (:abstracts (abstract-list-syntax-p second))
             (t (er hard? 'process=>datatype-syntax-p-helper
                    "Datatype option doesn't include: ~p0. ~
-                       They are :sumtypes and :arrays.~%"
+                       They are :sumtypes, :arrays and :abstracts.~%"
                    first)))))
       (and first-ok
            (datatype-syntax-p-helper rest (cons first used))))
@@ -898,13 +993,16 @@
                        (implies (equal (car term) :sumtypes)
                                 (sumtype-list-syntax-p (cadr term)))
                        (implies (equal (car term) :arrays)
-                                (array-list-syntax-p (cadr term)))))
+                                (array-list-syntax-p (cadr term)))
+                       (implies (equal (car term) :abstracts)
+                                (abstract-list-syntax-p (cadr term)))))
          :hints (("Goal"
                   :expand (datatype-syntax-p-helper term used)))
          :name definition-of-datatype-syntax-p-helper)
      (ok (implies (and (and ok (consp term))
-                       (not (equal (car term) :sumtypes)))
-                  (equal (car term) :arrays))
+                       (not (equal (car term) :sumtypes))
+                       (not (equal (car term) :arrays)))
+                  (equal (car term) :abstracts))
          :hints (("Goal"
                   :expand (datatype-syntax-p-helper term used)))
          :name option-of-datatype-syntax-p-helper))
@@ -933,11 +1031,14 @@
                        (implies (equal (car term) :sumtypes)
                                 (sumtype-list-syntax-p (cadr term)))
                        (implies (equal (car term) :arrays)
-                                (array-list-syntax-p (cadr term)))))
+                                (array-list-syntax-p (cadr term)))
+                       (implies (equal (car term) :abstracts)
+                                (abstract-list-syntax-p (cadr term)))))
          :name definition-of-datatype-syntax-p)
      (ok (implies (and (and ok (consp term))
-                       (not (equal (car term) :sumtypes)))
-                  (equal (car term) :arrays))
+                       (not (equal (car term) :sumtypes))
+                       (not (equal (car term) :arrays)))
+                  (equal (car term) :abstracts))
          :name option-of-datatype-syntax-p)
      (ok (implies (and ok (consp term))
                   (datatype-syntax-p (cddr term)))
@@ -1547,7 +1648,6 @@
   :returns (new-type smt-datatype-p)
   :guard-hints (("Goal" :in-theory (enable array-syntax-fix
                                            array-syntax-p)))
-  :guard-debug t
   (b* ((type (array-syntax-fix type))
        ((cons & type-opt-lst) type))
     (construct-array-option-lst type-opt-lst (make-smt-datatype-array))))
@@ -1566,6 +1666,45 @@
        (new-hint (change-smtlink-hint h :datatypes new-type-lst)))
     (merge-arrays rest new-hint)))
 
+(define construct-abstract-option-lst ((type-opt-lst abstract-option-syntax-p)
+                                       (smt-type smt-datatype-p))
+  :guard (equal (smt-datatype-kind smt-type) :abstract)
+  :returns (smt-type smt-datatype-p)
+  :measure (len type-opt-lst)
+  :hints (("Goal" :in-theory (enable abstract-option-syntax-fix)))
+  (b* ((type-opt-lst (abstract-option-syntax-fix type-opt-lst))
+       (smt-type (smt-datatype-fix smt-type))
+       ((unless (consp type-opt-lst)) smt-type)
+       ((list* option content rest) type-opt-lst)
+       (new-smt-type
+        (case option
+          (:recognizer
+           (change-smt-datatype-abstract
+            smt-type :recognizer (construct-function content))))))
+    (construct-abstract-option-lst rest new-smt-type)))
+
+(define construct-abstract ((type abstract-syntax-p))
+  :returns (new-type smt-datatype-p)
+  :guard-hints (("Goal" :in-theory (enable abstract-syntax-fix
+                                           abstract-syntax-p)))
+  (b* ((type (abstract-syntax-fix type))
+       ((cons & type-opt-lst) type))
+    (construct-abstract-option-lst type-opt-lst (make-smt-datatype-abstract))))
+
+(define merge-abstracts ((content abstract-list-syntax-p)
+                         (hint smtlink-hint-p))
+  :returns (new-hint smtlink-hint-p)
+  :measure (len content)
+  :short "Merging abstract hints into smt-hint."
+  (b* ((hint (smtlink-hint-fix hint))
+       (content (abstract-list-syntax-fix content))
+       ((unless (consp content)) hint)
+       ((cons first rest) content)
+       ((smtlink-hint h) hint)
+       (new-type-lst (cons (construct-abstract first) h.datatypes))
+       (new-hint (change-smtlink-hint h :datatypes new-type-lst)))
+    (merge-abstracts rest new-hint)))
+
 (define merge-datatypes ((type-opt-lst datatype-syntax-p)
                          (hint smtlink-hint-p))
   :returns (new-hint smtlink-hint-p)
@@ -1577,7 +1716,8 @@
        (new-hint
         (case option
           (:sumtypes (merge-sumtypes content hint))
-          (:arrays (merge-arrays content hint)))))
+          (:arrays (merge-arrays content hint))
+          (:abstracts (merge-abstracts content hint)))))
     (merge-datatypes rest new-hint)))
 
 (define construct-acl2type-option-lst ((type-opt-lst acl2type-option-syntax-p)
