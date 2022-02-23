@@ -543,9 +543,6 @@
                                         :formals (x))))
                         (maybe-symbol-integer-consp
                          :return ((:thm booleanp-of-maybe-symbol-integer-consp
-                                        :formals (x))))
-                        (maybe-symbol-integer-cons-fix
-                         :return ((:thm maybe-symbol-integer-consp-of-maybe-symbol-integer-cons-fix
                                         :formals (x)))))
             :acl2types ((maybe-symbol-integer-consp
                          :subtypes ((symbol-integer-consp
@@ -595,6 +592,114 @@
                         replace-of-cdr-of-symbol-integer-consp)
                        (:thm replace-of-maybe-symbol-integer-cons->nil))
             ))))
+
+(defthm test10
+  (implies (and (symbolp k) (integerp v) (symbolp x)
+                (not (equal (assoc-equal x (acons k v nil)) nil)))
+           (>= (* (cdr (assoc-equal x (acons k v nil)))
+                  (cdr (assoc-equal x (acons k v nil))))
+               0))
+  :hints (("Goal"
+           :smtlink
+           (:functions ((assoc-equal
+                         :return ((:thm maybe-symbol-integer-consp-of-assoc-equal-of-symbol-integer-alist-p
+                                        :formals (k x))))
+                        (acons
+                         :return ((:thm symbol-integer-alist-p-of-acons
+                                        :formals (k v x))))
+                        (cdr
+                         :return ((:thm integerp-of-cdr-of-symbol-integer-consp
+                                        :formals (x))
+                                  (:thm integerp-of-cdr-of-maybe-symbol-integer-consp
+                                        :formals (x))))
+                        (equal
+                         :kind :basic
+                         :translation "_SMT_.equal"
+                         :return ((:thm booleanp-of-equal-of-maybe-symbol-integer-consp
+                                        :formals (x y))))
+                        (symbol-integer-alist-p
+                         :return ((:thm booleanp-of-symbol-integer-alist-p
+                                        :formals (x))))
+                        (symbol-integer-consp
+                         :return ((:thm booleanp-of-symbol-integer-consp
+                                        :formals (x))))
+                        (maybe-symbol-integer-consp
+                         :return ((:thm booleanp-of-maybe-symbol-integer-consp
+                                        :formals (x)))))
+            :acl2types ((maybe-symbol-integer-consp
+                         :subtypes ((symbol-integer-consp
+                                     :thm (:thm maybe-symbol-integer-consp-canbe-symbol-integer-consp
+                                                :formals (x)))))
+                        (symbol-integer-alist-p)
+                        (symbol-integer-consp)
+                        (symbol-integer-array-equiv-consp)
+                        (symbol-integer-array-p))
+            :datatypes (:sumtypes ((maybe-symbol-integer-consp
+                                    :recognizer
+                                    (maybe-symbol-integer-consp :translation "MaybeSymbolIntegerCons")
+                                    :sums
+                                    ((:constructor (maybe-symbol-integer-cons->cons
+                                                    :translation "cons"
+                                                    :return-type maybe-symbol-integer-consp)
+                                      :destructors ((maybe-symbol-integer-cons->car
+                                                     :translation "car"
+                                                     :return-type symbolp)
+                                                    (maybe-symbol-integer-cons->cdr
+                                                     :translation "cdr"
+                                                     :return-type integerp)))
+                                     (:constructor (maybe-symbol-integer-cons->nil
+                                                    :fn-to-const t
+                                                    :translation "nil"
+                                                    :return-type maybe-symbol-integer-consp)
+                                                   :destructors nil))))
+                        :arrays ((symbol-integer-array-p
+                                  :recognizer (symbol-integer-array-p
+                                               :translation "SymbolIntegerArray")
+                                  :key-type symbolp
+                                  :val-type maybe-symbol-integer-consp
+                                  :init (:fn (symbol-integer-array-init
+                                              :translation
+                                              "symbolIntegerArrayInit")
+                                         :val maybe-symbol-integer-cons->nil)
+                                  :select (symbol-integer-array-select)
+                                  :store (symbol-integer-array-store)
+                                  :equal (symbol-integer-array-equal)
+                                  :equal-witness (symbol-integer-array-equal-witness))))
+            :replaces ((:thm
+                        symbol-integer-array-translation-of-assoc-equal)
+                       (:thm symbol-integer-array-translation-of-acons)
+                       (:thm symbol-integer-array-translation-of-alist)
+                       (:thm symbol-integer-array-translation-of-nil)
+                       (:thm
+                        replace-of-cdr-of-symbol-integer-consp)
+                       (:thm replace-of-maybe-symbol-integer-cons->nil))
+            ))))
+
+(encapsulate
+  (((abs-p *) => *))
+  (local (defun abs-p (x) (acl2::any-p x)))
+  (defthm booleanp-of-abs-p
+    (booleanp (abs-p x)))
+  (defthm booleanp-of-equal-of-abs-p
+    (implies (and (abs-p x) (abs-p y))
+             (booleanp (equal x y)))))
+
+(defthm test11
+  (implies (abs-p x) (equal x x))
+  :hints (("Goal"
+           :smtlink
+           (:functions ((equal
+                         :kind :basic
+                         :translation "_SMT_.equal"
+                         :return ((:thm booleanp-of-equal-of-abs-p
+                                        :formals (x y))))
+                        (abs-p
+                         :return ((:thm booleanp-of-abs-p
+                                        :formals (x)))))
+            :acl2types ((abs-p))
+            :datatypes (:abstracts ((abs-p
+                                     :recognizer (abs-p :translation "AbsType")))))))
+  :rule-classes nil)
 
 ;; Example 1
 ;; (def-saved-event x^2-y^2
