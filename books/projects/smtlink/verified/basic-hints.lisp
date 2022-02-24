@@ -33,25 +33,29 @@
                                         :kind :basic
                                         :translation-hint
                                         (make-trans-hint
-                                         :translation "Symbol_z3.z3Sym")))
+                                         :translation "Symbol_z3.z3Sym"))
+         :equal (make-smt-function :name 'equal))
         (make-smt-datatype-basic
          :recognizer (make-smt-function :name 'booleanp
                                         :kind :basic
                                         :translation-hint
                                         (make-trans-hint
-                                         :translation "_SMT_.BoolSort()")))
+                                         :translation "_SMT_.BoolSort()"))
+         :equal (make-smt-function :name 'equal))
         (make-smt-datatype-basic
          :recognizer (make-smt-function :name 'integerp
                                         :kind :basic
                                         :translation-hint
                                         (make-trans-hint
-                                         :translation "_SMT_.IntSort()")))
+                                         :translation "_SMT_.IntSort()"))
+         :equal (make-smt-function :name 'equal))
         (make-smt-datatype-basic
          :recognizer (make-smt-function :name 'rationalp
                                         :kind :basic
                                         :translation-hint
                                         (make-trans-hint
-                                         :translation "_SMT_.RealSort()")))))
+                                         :translation "_SMT_.RealSort()"))
+         :equal (make-smt-function :name 'equal))))
 
 (define make-basic-functions ()
   :returns (fun-lst smt-function-list-p)

@@ -13,10 +13,14 @@
 (include-book "../../utils/basics")
 (include-book "../../utils/fresh-vars")
 (include-book "../../verified/hint-interface")
+(include-book "recognizer-property")
+(include-book "equality-property")
 
 (define abstract-property ((type smt-datatype-p)
                            (acc pseudo-term-list-listp))
   :guard (equal (smt-datatype-kind type) :abstract)
   :returns (new-acc pseudo-term-list-listp)
-  :ignore-ok t
-  (pseudo-term-list-list-fix acc))
+  (b* ((type (smt-datatype-fix type))
+       (acc (pseudo-term-list-list-fix acc))
+       (acc-1 (recognizer-property type acc)))
+    (equality-property type acc-1)))

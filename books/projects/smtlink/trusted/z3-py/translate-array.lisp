@@ -83,6 +83,6 @@
        ((unless (equal (smt-datatype-kind type) :array)) (mv nil acc))
        (array-decl (create-array-type type h.user-types))
        (array-init (create-array-init type h))
-       (acc-1 (datatype-property type acc))
+       (acc-1 (datatype-property type h.user-types acc))
        ((mv trans-tl acc-2) (create-array-list array-tl h acc-1)))
     (mv (cons `(,array-decl ,array-init) trans-tl) acc-2)))

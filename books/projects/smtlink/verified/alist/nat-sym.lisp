@@ -391,6 +391,22 @@
                  booleanp-of-ar-equal
                  :theory '(ar-kv-equal))
 
+         (fi-thm reflexivity-of-ar-kv-equal
+                 (implies (ar-kv-p ar) (ar-kv-equal ar ar))
+                 reflexivity-of-ar-equal)
+
+         (fi-thm symmetricity-of-ar-kv-equal
+                 (implies (and (ar-kv-p a1) (ar-kv-p a2)
+                               (ar-kv-equal a1 a2))
+                          (ar-kv-equal a2 a1))
+                 symmetricity-of-ar-equal)
+
+         (fi-thm transitivity-of-ar-kv-equal
+                 (implies (and (ar-kv-p a1) (ar-kv-p a2) (ar-kv-p a3)
+                               (ar-kv-equal a1 a2) (ar-kv-equal a2 a3))
+                          (ar-kv-equal a1 a3))
+                 transitivity-of-ar-equal)
+
          (fi-thm ar-kv-equal-implies-selects-equal
            (implies (and (ar-kv-p a1) (ar-kv-p a2) (kp k)
                          (ar-kv-equal a1 a2))
@@ -900,7 +916,27 @@
              :in-theory '(nat-sym-array-equal)
              :use ((:instance booleanp-of-ar-kv-equal)))))
 
-  (defthm nat-sym-array-equal-implies-selects-equal
+  (defthmd reflexivity-of-nat-sym-array-equal
+    (implies (nat-sym-array-p ar) (nat-sym-array-equal ar ar)))
+
+  (defthmd symmetricity-of-nat-sym-array-equal
+    (implies (and (nat-sym-array-p a1) (nat-sym-array-p a2)
+                  (nat-sym-array-equal a1 a2))
+             (nat-sym-array-equal a2 a1))
+    :hints (("Goal"
+             :in-theory '(nat-sym-array-equal nat-sym-array-p)
+             :use ((:instance symmetricity-of-ar-kv-equal)))))
+
+  (defthmd transitivity-of-nat-sym-array-equal
+    (implies (and (nat-sym-array-p a1) (nat-sym-array-p a2)
+                  (nat-sym-array-p a3)
+                  (nat-sym-array-equal a1 a2) (nat-sym-array-equal a2 a3))
+             (nat-sym-array-equal a1 a3))
+    :hints (("Goal"
+             :in-theory '(nat-sym-array-equal nat-sym-array-p)
+             :use ((:instance transitivity-of-ar-kv-equal)))))
+
+  (defthmd nat-sym-array-equal-implies-selects-equal
     (implies (and (nat-sym-array-p a1) (nat-sym-array-p a2) (natp k)
                   (nat-sym-array-equal a1 a2))
 	           (equal (nat-sym-array-select a1 k)
@@ -910,7 +946,7 @@
                           nat-sym-array-p natp-equals-kp nat-sym-array-select)
              :use ((:instance ar-kv-equal-implies-selects-equal)))))
 
-  (defthm selects-of-witness-equal-implies-nat-sym-array-equal
+  (defthmd selects-of-witness-equal-implies-nat-sym-array-equal
     (implies (and (nat-sym-array-p a1) (nat-sym-array-p a2))
              (let ((k (nat-sym-array-equal-witness a1 a2)))
                (equal (nat-sym-array-equal a1 a2)

@@ -514,6 +514,27 @@
 
 (defalist-smt symbol-integer-alist-p symbolp symbol-fix integerp ifix)
 
+(defthm crock1
+  (implies (symbol-integer-array-p x)
+           (symbol-integer-array-equal x x))
+  :hints (("Goal"
+           :in-theory (enable reflexivity-of-symbol-integer-array-equal))))
+
+(defthm crock2
+  (implies (and (symbol-integer-array-p x) (symbol-integer-array-p y)
+                (symbol-integer-array-equal x y))
+           (symbol-integer-array-equal y x))
+  :hints (("Goal"
+           :in-theory (enable symmetricity-of-symbol-integer-array-equal))))
+
+(defthm crock3
+  (implies (and (symbol-integer-array-p x) (symbol-integer-array-p y)
+                (symbol-integer-array-p z) (symbol-integer-array-equal x y)
+                (symbol-integer-array-equal y z))
+           (symbol-integer-array-equal x z))
+  :hints (("Goal"
+           :in-theory (enable transitivity-of-symbol-integer-array-equal))))
+
 (defthm test9
   (implies (and (symbol-integer-alist-p x) (symbolp y)
                 (not (equal (assoc-equal y x) nil)))
