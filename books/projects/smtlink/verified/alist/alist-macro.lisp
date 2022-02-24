@@ -173,6 +173,9 @@
 	            key-val-array-select-of-key-val-array-init
 	            key-val-array-select-of-key-val-array-store
               booleanp-of-key-val-array-equal
+              reflexivity-of-key-val-array-equal
+              symmetricity-of-key-val-array-equal
+              transitivity-of-key-val-array-equal
               key-val-array-equal-implies-selects-equal
               selects-of-witness-equal-implies-key-val-array-equal
 	            key-val-array-translation-of-nil
@@ -232,6 +235,9 @@
 	                       `(,key-val-array-select of ,key-val-array-init)
 	                       `(,key-val-array-select of ,key-val-array-store)
                          `(booleanp of ,key-val-array-equal)
+                         `(reflexivity of ,key-val-array-equal)
+                         `(symmetricity of ,key-val-array-equal)
+                         `(transitivity of ,key-val-array-equal)
                          `(,key-val-array-equal implies selects equal)
                          `(selects of witness equal implies ,key-val-array-equal)
 	                       `(,key-val array translation of nil)
@@ -624,6 +630,22 @@
                         (booleanp (ar-kv-equal a1 a2))
                         booleanp-of-ar-equal
                         :theory '(ar-kv-equal))
+
+                (fi-thm reflexivity-of-ar-kv-equal
+                        (implies (ar-kv-p ar) (ar-kv-equal ar ar))
+                        reflexivity-of-ar-equal)
+
+                (fi-thm symmetricity-of-ar-kv-equal
+                        (implies (and (ar-kv-p a1) (ar-kv-p a2)
+                                      (ar-kv-equal a1 a2))
+                                 (ar-kv-equal a2 a1))
+                        symmetricity-of-ar-equal)
+
+                (fi-thm transitivity-of-ar-kv-equal
+                        (implies (and (ar-kv-p a1) (ar-kv-p a2) (ar-kv-p a3)
+                                      (ar-kv-equal a1 a2) (ar-kv-equal a2 a3))
+                                 (ar-kv-equal a1 a3))
+                        transitivity-of-ar-equal)
 
                 (fi-thm ar-kv-equal-implies-selects-equal
                         (implies (and (ar-kv-p a1) (ar-kv-p a2) (kp k)
@@ -1132,7 +1154,27 @@
                     :in-theory '(,key-val-array-equal)
                     :use ((:instance booleanp-of-ar-kv-equal)))))
 
-         (defthmd ,key-val-array-equal-implies-selects-equal
+         (defthmd ,reflexivity-of-key-val-array-equal
+           (implies (,key-val-array-p ar) (,key-val-array-equal ar ar)))
+
+         (defthmd ,symmetricity-of-key-val-array-equal
+           (implies (and (,key-val-array-p a1) (,key-val-array-p a2)
+                         (,key-val-array-equal a1 a2))
+                    (,key-val-array-equal a2 a1))
+           :hints (("Goal"
+                    :in-theory '(,key-val-array-equal ,key-val-array-p)
+                    :use ((:instance symmetricity-of-ar-kv-equal)))))
+
+         (defthmd ,transitivity-of-key-val-array-equal
+           (implies (and (,key-val-array-p a1) (,key-val-array-p a2)
+                         (,key-val-array-p a3)
+                         (,key-val-array-equal a1 a2) (,key-val-array-equal a2 a3))
+                    (,key-val-array-equal a1 a3))
+           :hints (("Goal"
+                    :in-theory '(,key-val-array-equal ,key-val-array-p)
+                    :use ((:instance transitivity-of-ar-kv-equal)))))
+
+         (defthm ,key-val-array-equal-implies-selects-equal
            (implies (and (,key-val-array-p a1) (,key-val-array-p a2) (,key-p k)
                          (,key-val-array-equal a1 a2))
 	                  (equal (,key-val-array-select a1 k)
@@ -1140,7 +1182,8 @@
            :hints (("Goal"
                     :in-theory '(,key-val-array-equal
                                  ,key-val-array-p ,key-p-equals-kp ,key-val-array-select)
-                    :use ((:instance ar-kv-equal-implies-selects-equal)))))
+                    :use ((:instance ar-kv-equal-implies-selects-equal))))
+           :rule-classes nil)
 
          (defthmd ,selects-of-witness-equal-implies-key-val-array-equal
            (implies (and (,key-val-array-p a1) (,key-val-array-p a2))

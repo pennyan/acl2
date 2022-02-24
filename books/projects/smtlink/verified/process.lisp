@@ -556,6 +556,7 @@
           (case first
             (:kind (maybe-function-syntax-p second))
             (:recognizer (function-syntax-p second))
+            (:equal (function-syntax-p second))
             (:sums (type-sum-list-syntax-p second))
             (t (er hard? 'process=>sumtype-option-syntax-p-helper
                    "Smtlink-hint sumtype option doesn't include: ~p0.
@@ -571,6 +572,8 @@
                                 (maybe-function-syntax-p (cadr term)))
                        (implies (equal (car term) :recognizer)
                                 (function-syntax-p (cadr term)))
+                       (implies (equal (car term) :equal)
+                                (function-syntax-p (cadr term)))
                        (implies (equal (car term) :sums)
                                 (type-sum-list-syntax-p (cadr term)))))
          :hints (("Goal"
@@ -578,7 +581,8 @@
          :name definition-of-sumtype-option-syntax-p-helper)
      (ok (implies (and (and ok (consp term) (symbol-listp used))
                        (not (equal (car term) :kind))
-                       (not (equal (car term) :recognizer)))
+                       (not (equal (car term) :recognizer))
+                       (not (equal (car term) :equal)))
                   (equal (car term) :sums))
          :hints (("Goal"
                   :expand (sumtype-option-syntax-p-helper term used)))
@@ -609,12 +613,15 @@
                                 (maybe-function-syntax-p (cadr term)))
                        (implies (equal (car term) :recognizer)
                                 (function-syntax-p (cadr term)))
+                       (implies (equal (car term) :equal)
+                                (function-syntax-p (cadr term)))
                        (implies (equal (car term) :sums)
                                 (type-sum-list-syntax-p (cadr term)))))
          :name definition-of-sumtype-option-syntax-p)
      (ok (implies (and (and ok (consp term))
                        (not (equal (car term) :kind))
-                       (not (equal (car term) :recognizer)))
+                       (not (equal (car term) :recognizer))
+                       (not (equal (car term) :equal)))
                   (equal (car term) :sums))
          :name option-of-sumtype-option-syntax-p)
      (ok (implies (and ok (consp term))
@@ -885,9 +892,10 @@
          (first-ok
           (case first
             (:recognizer (function-syntax-p second))
+            (:equal (function-syntax-p second))
             (t (er hard? 'process=>abstract-option-syntax-p-helper
                    "Smtlink-hint abstract datatype option doesn't include: ~p0.
-                       It is :recognizer.~%"
+                       They are :recognizer and :equal.~%"
                    first)))))
       (and first-ok
            (abstract-option-syntax-p-helper rest (cons first used))))
@@ -896,11 +904,14 @@
      (ok (implies (and ok (consp term) (symbol-listp used))
                   (and (consp (cdr term))
                        (implies (equal (car term) :recognizer)
+                                (function-syntax-p (cadr term)))
+                       (implies (equal (car term) :equal)
                                 (function-syntax-p (cadr term)))))
          :hints (("Goal"
                   :expand (abstract-option-syntax-p-helper term used)))
          :name definition-of-abstract-option-syntax-p-helper)
-     (ok (implies (and (and ok (consp term) (symbol-listp used)))
+     (ok (implies (and (and ok (consp term) (symbol-listp used)
+                            (not (equal (car term) :equal))))
                   (equal (car term) :recognizer))
          :hints (("Goal"
                   :expand (abstract-option-syntax-p-helper term used)))
@@ -928,9 +939,12 @@
      (ok (implies (and ok (consp term))
                   (and (consp (cdr term))
                        (implies (equal (car term) :recognizer)
+                                (function-syntax-p (cadr term)))
+                       (implies (equal (car term) :equal)
                                 (function-syntax-p (cadr term)))))
          :name definition-of-abstract-option-syntax-p)
-     (ok (implies (and (and ok (consp term)))
+     (ok (implies (and (and ok (consp term)
+                            (not (equal (car term) :equal))))
                   (equal (car term) :recognizer))
          :name option-of-abstract-option-syntax-p)
      (ok (implies (and ok (consp term))
@@ -1561,6 +1575,9 @@
           (:recognizer
            (change-smt-datatype-sumtype
             smt-type :recognizer (construct-function content)))
+          (:equal
+           (change-smt-datatype-sumtype
+            smt-type :equal (construct-function content)))
           (:sums
            (change-smt-datatype-sumtype
             smt-type :sums (construct-type-sum-list content))))))
@@ -1680,7 +1697,10 @@
         (case option
           (:recognizer
            (change-smt-datatype-abstract
-            smt-type :recognizer (construct-function content))))))
+            smt-type :recognizer (construct-function content)))
+          (:equal
+           (change-smt-datatype-abstract
+            smt-type :equal (construct-function content))))))
     (construct-abstract-option-lst rest new-smt-type)))
 
 (define construct-abstract ((type abstract-syntax-p))

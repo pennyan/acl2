@@ -271,6 +271,26 @@
       (ua-equal-witness a1 a2)
     nil))
 
+(defthm reflexivity-of-ar-equal
+  (implies (ar-p ar) (ar-equal ar ar))
+  :hints (("Goal"
+           :in-theory (enable ar-equal))))
+
+(defthm symmetricity-of-ar-equal
+  (implies (and (ar-p a1) (ar-p a2) (ar-equal a1 a2))
+           (ar-equal a2 a1))
+  :hints (("Goal"
+           :in-theory (e/d (ar-equal)
+                           (selects-of-witness-equal-implies-ua-equal)))))
+
+(defthm transitivity-of-ar-equal
+  (implies (and (ar-p a1) (ar-p a2) (ar-p a3)
+                (ar-equal a1 a2) (ar-equal a2 a3))
+           (ar-equal a1 a3))
+  :hints (("Goal"
+           :in-theory (e/d (ar-equal)
+                           (selects-of-witness-equal-implies-ua-equal)))))
+
 (defthm ar-equal-implies-selects-equal
   (implies (and (ar-p a1) (ar-p a2) (ar-key-p k)
                 (ar-equal a1 a2))

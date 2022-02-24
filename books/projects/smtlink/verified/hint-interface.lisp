@@ -115,9 +115,11 @@
    (val symbolp)))
 
 (deftagsum smt-datatype
-  (:basic ((recognizer smt-function-p :default (make-smt-function))))
+  (:basic ((recognizer smt-function-p :default (make-smt-function))
+           (equal smt-function-p :default (make-smt-function :name 'equal))))
   (:sumtype ((kind maybe-smt-function-p)
              (recognizer smt-function-p :default (make-smt-function))
+             (equal smt-function-p :default (make-smt-function :name 'equal))
              (sums smt-sum-list-p)))
   (:array ((recognizer smt-function-p :default (make-smt-function))
            (key-type symbolp)
@@ -127,7 +129,8 @@
            (store smt-function-p :default (make-smt-function))
            (equal smt-function-p :default (make-smt-function))
            (equal-witness smt-function-p :default (make-smt-function))))
-  (:abstract ((recognizer smt-function-p :default (make-smt-function)))))
+  (:abstract ((recognizer smt-function-p :default (make-smt-function))
+              (equal smt-function-p :default (make-smt-function :name 'equal)))))
 
 (define smt-datatype->recognizer ((type smt-datatype-p))
   :returns (rec smt-function-p)
@@ -140,6 +143,18 @@
            (smt-datatype-array->recognizer type))
           ((equal (smt-datatype-kind type) :abstract)
            (smt-datatype-abstract->recognizer type)))))
+
+(define smt-datatype->equal ((type smt-datatype-p))
+  :returns (rec smt-function-p)
+  (b* ((type (smt-datatype-fix type)))
+    (cond ((equal (smt-datatype-kind type) :basic)
+           (smt-datatype-basic->equal type))
+          ((equal (smt-datatype-kind type) :sumtype)
+           (smt-datatype-sumtype->equal type))
+          ((equal (smt-datatype-kind type) :array)
+           (smt-datatype-array->equal type))
+          ((equal (smt-datatype-kind type) :abstract)
+           (smt-datatype-abstract->equal type)))))
 
 (deflist smt-datatype-list
   :elt-type smt-datatype-p
@@ -183,6 +198,21 @@
                 (assoc-equal x alst))
            (and (consp (assoc-equal x alst))
                 (smt-datatype-p (cdr (assoc-equal x alst))))))
+
+(define get-return-type ((fn smt-function-p)
+                         (types symbol-smt-datatype-alist-p))
+  :returns (return-type smt-datatype-p)
+  (b* ((fn (smt-function-fix fn))
+       (types (symbol-smt-datatype-alist-fix types))
+       ((smt-function f) fn)
+       ((trans-hint th) f.translation-hint)
+       (exists? (assoc-equal th.return-type types))
+       ((unless exists?)
+        (prog2$ (er hard? 'get-return-type=>get-return-type
+                    "Unrecognized type ~p0, consider adding it to the hint.~%"
+                    th.return-type)
+                (make-smt-datatype-basic))))
+    (cdr exists?)))
 
 (defalist symbol-trans-hint-alist
   :key-type symbolp

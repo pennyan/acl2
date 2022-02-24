@@ -24,14 +24,10 @@
   :returns (translated paragraph-p)
   (b* ((destructor (smt-function-fix destructor))
        ((smt-function f) destructor)
-       ((trans-hint th) f.translation-hint)
-       (exists? (assoc-equal th.return-type types))
-       ((unless exists?)
-        (er hard? 'translate-user-type=>create-destructor
-            "Unrecognized type ~p0, consider adding it to the hint.~%"
-            th.return-type)))
+       (type (get-return-type f types))
+       ((trans-hint th) f.translation-hint))
     `("('" ,(translate-variable th.translation) "', "
-      ,(translate-type (cdr exists?)) ")")))
+      ,(translate-type type) ")")))
 
 (define create-destructors ((destructors smt-function-list-p)
                             (types symbol-smt-datatype-alist-p))
@@ -154,7 +150,7 @@
        (name (translate-type type))
        (datatype `(,name " = Datatype( '" ,name "' )" #\Newline))
        (declares (create-sum-declare type types))
-       (new-acc (datatype-property type acc))
+       (new-acc (datatype-property type types acc))
        ((unless tp.kind) (mv `(,datatype ,declares) new-acc nil))
        (curr-kind (translate-kind tp.kind tp.recognizer tp.sums symbol-map)))
     (mv `(,datatype ,declares) new-acc curr-kind)))

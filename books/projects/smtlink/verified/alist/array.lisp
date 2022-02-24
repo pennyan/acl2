@@ -118,6 +118,17 @@
     :hints (("Goal"
              :in-theory (enable ua-equal))))
 
+  (defthm reflexivity-of-ua-equal
+    (ua-equal ua ua)
+    :hints (("Goal" :in-theory (enable ua-equal))))
+
+  (defthm symmetricity-of-ua-equal
+    (implies (ua-equal a1 a2) (ua-equal a2 a1))
+    :hints (("Goal"
+             :in-theory (e/d (ua-equal) (ua-select))
+             :use ((:instance ua-equal-necc
+                              (k (ua-equal-witness a2 a1)))))))
+
   (defthm ua-equal-implies-selects-equal
     (implies (ua-equal a1 a2)
 	           (equal (ua-select a1 k)
@@ -125,6 +136,20 @@
     :rule-classes nil
     :hints (("Goal"
              :use((:instance ua-equal-necc)))))
+
+  (defthm transitivity-of-ua-equal
+    (implies (and (ua-equal a1 a2) (ua-equal a2 a3))
+             (ua-equal a1 a3))
+    :hints (("Goal"
+             :in-theory (e/d (ua-equal) (ua-select))
+             :use ((:instance ua-equal-implies-selects-equal
+                              (a1 a1)
+                              (a2 a2)
+                              (k (ua-equal-witness a1 a3)))
+                   (:instance ua-equal-implies-selects-equal
+                              (a1 a2)
+                              (a2 a3)
+                              (k (ua-equal-witness a1 a3)))))))
 
   (defthm selects-of-witness-equal-implies-ua-equal
     (let ((k (ua-equal-witness a1 a2)))

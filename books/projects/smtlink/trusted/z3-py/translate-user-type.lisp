@@ -60,5 +60,5 @@
        ((mv trans1 prop1)
         (create-sumtype-list-top at.sumtype symbol-map h.user-types))
        ((mv trans2 prop2) (create-array-list at.array h prop1))
-       ((mv trans3 prop3) (create-abstract-list at.abstract prop2)))
+       ((mv trans3 prop3) (create-abstract-list at.abstract h.user-types prop2)))
     (mv `(,trans1 ,trans2 ,trans3) prop3)))
