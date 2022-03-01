@@ -21,6 +21,7 @@
 (include-book "verified/hint-generation")
 (include-book "verified/type-extract")
 (include-book "verified/alist/alist-macro")
+(include-book "verified/alist/define-nonexist")
 
 ;; trusted
 (include-book "trusted/prove")

@@ -214,6 +214,85 @@
                 (make-smt-datatype-basic))))
     (cdr exists?)))
 
+;; ----------------------------------------------------
+;;     generate connection map
+
+(define generate-destructors-map ((destructor-lst smt-function-list-p)
+                                  (acc symbol-listp))
+  :returns (pred-lst symbol-listp)
+  :measure (len destructor-lst)
+  (b* ((destructor-lst (smt-function-list-fix destructor-lst))
+       (acc (symbol-list-fix acc))
+       ((unless (consp destructor-lst)) acc)
+       ((cons des-hd des-tl) destructor-lst)
+       ((smt-function f) des-hd)
+       ((trans-hint th) f.translation-hint)
+       ((if (member-equal th.return-type acc))
+        (generate-destructors-map des-tl acc)))
+    (generate-destructors-map des-tl (cons th.return-type acc))))
+
+(define generate-sum-map ((sum smt-sum-p)
+                          (acc symbol-listp))
+  :returns (pred-lst symbol-listp)
+  (b* ((sum (smt-sum-fix sum))
+       (acc (symbol-list-fix acc))
+       ((smt-sum s) sum))
+    (generate-destructors-map s.destructors acc)))
+
+(define generate-sum-list-map ((sums smt-sum-list-p)
+                               (acc symbol-listp))
+  :returns (pred-lst symbol-listp)
+  :measure (len sums)
+  (b* ((sums (smt-sum-list-fix sums))
+       (acc (symbol-list-fix acc))
+       ((unless (consp sums)) acc)
+       ((cons sum-hd sum-tl) sums)
+       (acc-1 (generate-sum-map sum-hd acc)))
+    (generate-sum-list-map sum-tl acc-1)))
+
+(define generate-sumtype-map ((type smt-datatype-p))
+  :guard (equal (smt-datatype-kind type) :sumtype)
+  :returns (pred-lst symbol-listp)
+  (b* ((type (smt-datatype-fix type))
+       ((unless (mbt (equal (smt-datatype-kind type) :sumtype))) nil)
+       (sums (smt-datatype-sumtype->sums type))
+       (lst (generate-sum-list-map sums nil))
+       ((if (member-equal 'symbolp lst)) lst))
+    (cons 'symbolp lst)))
+
+(define generate-array-map ((type smt-datatype-p))
+  :guard (equal (smt-datatype-kind type) :array)
+  :returns (pred-lst symbol-listp)
+  (b* ((type (smt-datatype-fix type))
+       ((unless (mbt (equal (smt-datatype-kind type) :array))) nil)
+       (key-type (smt-datatype-array->key-type type))
+       (val-type (smt-datatype-array->val-type type))
+       ((if (equal key-type val-type)) (list key-type)))
+    (list key-type val-type)))
+
+(define generate-connection-map ((type smt-datatype-p))
+  :returns (pred-lst symbol-listp)
+  (b* ((type (smt-datatype-fix type))
+       (kind (smt-datatype-kind type)))
+    (cond ((equal kind :sumtype) (generate-sumtype-map type))
+          ((equal kind :array) (generate-array-map type))
+          ((equal kind :abstract) nil)
+          (t nil))))
+
+(define generate-connection-map-list ((types symbol-smt-datatype-alist-p)
+                                      (acc symbol-symbol-list-alistp))
+  :returns (map symbol-symbol-list-alistp)
+  :measure (len (symbol-smt-datatype-alist-fix types))
+  (b* ((types (symbol-smt-datatype-alist-fix types))
+       (acc (symbol-symbol-list-alist-fix acc))
+       ((unless (consp types)) acc)
+       ((cons type-hd type-tl) types)
+       ((cons name type) type-hd)
+       (pred-lst (generate-connection-map type)))
+    (generate-connection-map-list type-tl (acons name pred-lst acc))))
+
+;; ----------------------------------------------------
+
 (defalist symbol-trans-hint-alist
   :key-type symbolp
   :val-type trans-hint-p
