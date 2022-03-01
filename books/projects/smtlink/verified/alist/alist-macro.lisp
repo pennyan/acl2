@@ -158,10 +158,10 @@
               replace-of-maybe-key-val-cons-fix
               maybe-key-val-consp-canbe-key-val-consp
 	            key-val-alist-p-equals-kvap
-              key-val-alist-fix-equals-kva-fix
+              ;; key-val-alist-fix-equals-kva-fix
               booleanp-of-key-val-alist-p
-              key-val-alist-p-of-key-val-alist-fix
-              replace-of-key-val-alist-fix
+              ;; key-val-alist-p-of-key-val-alist-fix
+              ;; replace-of-key-val-alist-fix
               key-val-alist-p-of-acons
               maybe-key-val-consp-of-assoc-equal-of-key-val-alist-p
 	            booleanp-of-key-val-array-p
@@ -220,10 +220,10 @@
                          `(replace of ,maybe-key-val-cons-fix)
                          `(,maybe-key-val-consp canbe ,key-val-consp)
 	                       `(,key-val-alist-p equals kvap)
-                         `(,key-val-alist-fix equals kva-fix)
+                         ;; `(,key-val-alist-fix equals kva-fix)
                          `(booleanp of ,key-val-alist-p)
-                         `(,key-val-alist-p of ,key-val-alist-fix)
-                         `(replace of ,key-val-alist-fix)
+                         ;; `(,key-val-alist-p of ,key-val-alist-fix)
+                         ;; `(replace of ,key-val-alist-fix)
                          `(,key-val-alist-p of acons)
                          `(,maybe-key-val-consp of assoc-equal of ,key-val-alist-p)
 	                       `(booleanp of ,key-val-array-p)
@@ -1024,7 +1024,7 @@
 		              (,val-p (cdar x))
 		              (,key-val-alist-p (cdr x)))))
 
-       (define ,key-val-alist-fix (x)
+       (define-nonexist ,key-val-alist-fix (x)
          (if (,key-val-alist-p x) x nil))
 
        (local (defthmd ,key-val-alist-p-equals-kvap
@@ -1036,11 +1036,11 @@
                                         (,replace-of-cdr-of-key-val-consp
                                          replace-of-cdr-of-kvp))))))
 
-       (local (defthmd ,key-val-alist-fix-equals-kva-fix
-                (equal (,key-val-alist-fix x) (kva-fix x))
-                :hints(("Goal"
-                        :in-theory '(,key-val-alist-p-equals-kvap)
-                        :expand ((,key-val-alist-fix x) (kva-fix x))))))
+       ;; (local (defthmd ,key-val-alist-fix-equals-kva-fix
+       ;;          (equal (,key-val-alist-fix x) (kva-fix x))
+       ;;          :hints(("Goal"
+       ;;                  :in-theory '(,key-val-alist-p-equals-kvap)
+       ;;                  :expand ((,key-val-alist-fix x) (kva-fix x))))))
 
        (local (defthmd ,booleanp-of-key-val-alist-p
 	              (booleanp (,key-val-alist-p x))
@@ -1048,17 +1048,17 @@
 	                      :in-theory '(,key-val-alist-p-equals-kvap
 	                                   booleanp-of-kvap)))))
 
-       (local (defthmd ,key-val-alist-p-of-key-val-alist-fix
-                (,key-val-alist-p (,key-val-alist-fix x))
-                :hints(("Goal" :in-theory '(,key-val-alist-p-equals-kvap
-                                            ,key-val-alist-fix-equals-kva-fix
-                                            kvap-of-kva-fix)))))
+       ;; (local (defthmd ,key-val-alist-p-of-key-val-alist-fix
+       ;;          (,key-val-alist-p (,key-val-alist-fix x))
+       ;;          :hints(("Goal" :in-theory '(,key-val-alist-p-equals-kvap
+       ;;                                      ,key-val-alist-fix-equals-kva-fix
+       ;;                                      kvap-of-kva-fix)))))
 
-       (local (defthmd ,replace-of-key-val-alist-fix
-                (implies (,key-val-alist-p x) (equal (,key-val-alist-fix x) x))
-                :hints(("Goal" :in-theory '(replace-of-kva-fix
-                                            ,key-val-alist-p-equals-kvap
-                                            ,key-val-alist-fix-equals-kva-fix)))))
+       ;; (local (defthmd ,replace-of-key-val-alist-fix
+       ;;          (implies (,key-val-alist-p x) (equal (,key-val-alist-fix x) x))
+       ;;          :hints(("Goal" :in-theory '(replace-of-kva-fix
+       ;;                                      ,key-val-alist-p-equals-kvap
+       ;;                                      ,key-val-alist-fix-equals-kva-fix)))))
 
        (local (defthmd ,key-val-alist-p-of-acons
                 (implies (and (,key-val-alist-p x) (,key-p k) (,val-p v))

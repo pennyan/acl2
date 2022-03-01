@@ -116,6 +116,67 @@
    :hints (("Goal" :in-theory (enable symbol-alistp))))
  )
 
+(defalist symbol-symbol-list-alist
+  :key-type symbolp
+  :val-type symbol-listp
+  :true-listp t
+  :pred symbol-symbol-list-alistp)
+
+(defthm assoc-equal-of-symbol-symbol-list-alistp-1
+  (implies (symbol-symbol-list-alistp x)
+           (symbol-listp (cdr (assoc-equal y x)))))
+
+(defthm assoc-equal-of-symbol-symbol-list-alistp-2
+  (implies (and (symbol-symbol-list-alistp x)
+                (assoc-equal y x))
+           (consp (assoc-equal y x))))
+
+(defalist symbol-integer-alist
+  :key-type symbolp
+  :val-type integerp
+  :true-listp t
+  :pred symbol-integer-alistp)
+
+(defthm assoc-equal-of-symbol-integer-alistp
+  (implies (and (symbol-integer-alistp x)
+                (assoc-equal y x))
+           (and (consp (assoc-equal y x))
+                (integerp (cdr (assoc-equal y x))))))
+
+(defalist symbol-boolean-alist
+  :key-type symbolp
+  :val-type booleanp
+  :true-listp t
+  :pred symbol-boolean-alistp)
+
+(defthm assoc-equal-of-symbol-boolean-alistp
+  (implies (and (symbol-boolean-alistp x)
+                (assoc-equal y x))
+           (and (consp (assoc-equal y x))
+                (booleanp (cdr (assoc-equal y x))))))
+
+(defalist integer-integer-list-alist
+  :key-type integerp
+  :val-type integer-listp
+  :true-listp t
+  :pred integer-integer-list-alistp)
+
+(defthm assoc-equal-of-integer-integer-alistp-1
+  (implies (integer-integer-list-alistp x)
+           (and (true-listp (cdr (assoc-equal y x)))
+                (integer-listp (cdr (assoc-equal y x))))))
+
+(defthm assoc-equal-of-integer-integer-alistp-2
+  (implies (and (integer-integer-list-alistp x)
+                (assoc-equal y x))
+           (consp (assoc-equal y x))))
+
+(defalist integer-symbol-list-alist
+  :key-type integerp
+  :val-type symbol-listp
+  :true-listp t
+  :pred integer-symbol-list-alistp)
+
 (defoption maybe-integer integerp :pred maybe-integerp)
 
 (deflist maybe-integer-list
