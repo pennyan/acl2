@@ -16,6 +16,7 @@
 (include-book "typed-term-fns")
 (include-book "judgement-fns")
 (include-book "lambda-substitution")
+(include-book "scc")
 
 (set-state-ok t)
 
@@ -200,8 +201,11 @@
        ((hint-options h) options)
        (th1 (make-trusted-hint))
        (th2 (change-trusted-hint th1 :user-types h.datatype))
-       (user-fns (add-user-fns h.function)))
-    (change-trusted-hint th2 :user-fns user-fns)))
+       (user-fns (add-user-fns h.function))
+       (th3 (change-trusted-hint th2 :user-fns user-fns))
+       (map (generate-connection-map-list h.datatype nil))
+       ((mv scc order) (find-and-sort-scc map)))
+    (change-trusted-hint th3 :scc-info (make-scc-info :scc scc :order order))))
 
 (define hint-generation-cp ((cl pseudo-term-listp)
                             (hints t)

@@ -304,9 +304,14 @@
            (and (consp (assoc-equal x alst))
                 (trans-hint-p (cdr (assoc-equal x alst))))))
 
+(defprod scc-info
+  ((scc integer-symbol-list-alistp)
+   (order integer-listp)))
+
 (defprod trusted-hint
   ((user-types symbol-smt-datatype-alist-p)
-   (user-fns symbol-smt-function-alist-p)))
+   (user-fns symbol-smt-function-alist-p)
+   (scc-info scc-info-p :default (make-scc-info))))
 
 (local (in-theory (disable symbol-listp)))
 
