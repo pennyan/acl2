@@ -70,6 +70,26 @@
   :forward t
   :topic true-listp)
 
+(define string-list-fix ((lst string-listp))
+  :parents (SMT-hint-interface)
+  :short "Fixing function for string-listp."
+  :returns (fixed-lst string-listp)
+  (mbe :logic (if (string-listp lst) lst nil)
+       :exec lst))
+
+(defthm string-list-fix-idempotent-lemma
+  (equal (string-list-fix (string-list-fix x))
+         (string-list-fix x))
+  :hints (("Goal" :in-theory (enable string-list-fix))))
+
+(deffixtype string-list
+  :fix string-list-fix
+  :pred string-listp
+  :equiv string-list-equiv
+  :define t
+  :forward t
+  :topic string-listp)
+
 (defalist symbol-symbol-alist
   :key-type symbolp
   :val-type symbolp
@@ -82,11 +102,13 @@
 
 (defthm strip-cars-of-symbol-symbol-alistp
   (implies (symbol-symbol-alistp x)
-           (symbol-listp (strip-cars x))))
+           (symbol-listp (strip-cars x)))
+  :hints (("Goal" :in-theory (enable strip-cars))))
 
 (defthm strip-cdrs-of-symbol-symbol-alistp
   (implies (symbol-symbol-alistp x)
-           (symbol-listp (strip-cdrs x))))
+           (symbol-listp (strip-cdrs x)))
+  :hints (("Goal" :in-theory (enable strip-cdrs))))
 
 (deflist symbol-list-list
   :elt-type symbol-listp
@@ -113,7 +135,7 @@
  (defthm symbol-alistp-of-pairlis$-of-symbol-listp
    (implies (symbol-listp x)
             (symbol-alistp (pairlis$ x y)))
-   :hints (("Goal" :in-theory (enable symbol-alistp))))
+   :hints (("Goal" :in-theory (enable symbol-alistp pairlis$))))
  )
 
 (defalist symbol-symbol-list-alist

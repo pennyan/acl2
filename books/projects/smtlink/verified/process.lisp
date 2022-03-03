@@ -16,7 +16,7 @@
 (include-book "hint-please")
 (include-book "basics")
 (include-book "evaluator")
-(include-book "unique-destructors")
+(include-book "unique-sumtype-functions")
 
 ;; (defsection Smtlink-process-user-hint
 ;;   :parents (verified)
@@ -1906,7 +1906,7 @@
                    (:datatypes
                     (b* ((datatype-hint (merge-datatypes second hint))
                          ((smtlink-hint h) datatype-hint)
-                         (type (unique-destructor-list h.datatypes))
+                         (type (unique-sumtype-function-list h.datatypes))
                          ((if type)
                           (prog2$ (er hard? 'process=>combine-hints
                                       "Found destructors of the same name ~q0"

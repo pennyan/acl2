@@ -104,6 +104,5 @@
                (properties pseudo-term-list-listp))
   (b* ((hint (trusted-hint-fix hint))
        ((trusted-hint h) hint)
-       (map (generate-connection-map-list h.user-types nil))
-       ((mv scc order) (find-and-sort-scc map)))
-    (create-datatypes-helper h symbol-map scc order nil)))
+       ((scc-info i) h.scc-info))
+    (create-datatypes-helper h symbol-map i.scc i.order nil)))
