@@ -13,6 +13,7 @@
 (include-book "std/util/define" :dir :system)
 (include-book "std/strings/top" :dir :system)
 (include-book "std/strings/eqv" :dir :system)
+(include-book "std/strings/case-conversion" :dir :system)
 
 (defsection SMT-names
   :parents (z3-py)
@@ -135,7 +136,6 @@
   ;; lisp-to-python-names-list-top
   (define lisp-to-python-names-list-top ((var-char character-listp))
     :returns (new-name character-listp)
-    :guard-debug t
     (cond ((endp var-char) nil)
           ((char-is-number (car var-char))
            (cons #\_ (lisp-to-python-names-list var-char)))
@@ -158,12 +158,17 @@
     :define t)
 
   (local (in-theory (enable characterp string-or-symbol-p)))
+
   ;; lisp-to-python-names
   (define lisp-to-python-names ((var string-or-symbol-p))
     :returns (name stringp)
     (b* ((var (string-or-symbol-fix var))
-         (var (if (stringp var) var (string var)))
-         (var-char (coerce var 'LIST)))
-      (coerce (lisp-to-python-names-list-top var-char) 'STRING)))
-
+         (str (if (stringp var) var (string var)))
+         (var-char (coerce str 'LIST))
+         (var-str (coerce (lisp-to-python-names-list-top var-char) 'STRING))
+         ((if (stringp var)) var-str))
+      (downcase-string var-str)))
   )
+
+;; (lisp-to-python-names "TypeName")
+;; (lisp-to-python-names 'TypeName)
