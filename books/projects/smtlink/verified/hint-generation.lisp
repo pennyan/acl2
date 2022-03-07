@@ -91,31 +91,38 @@
           (hint-generation-list tta ho th state))
          ((if (assoc-equal fn ho.supertype))
           (hint-generation-list tta ho th state))
-         (basic/uninter-exists? (assoc-equal fn ho.function))
-         ((unless basic/uninter-exists?)
+         (type/uninter-exists? (assoc-equal fn ho.function))
+         ((unless type/uninter-exists?)
           (prog2$ (er hard? 'hint-generation=>fncall-hint-generation
                       "Unrecognized function: ~p0, consider adding it to the ~
                        hint.~%" fn)
                   acc))
-         (func (cdr basic/uninter-exists?))
+         (func (cdr type/uninter-exists?))
          ((smt-function f) func)
+         ((if (or (equal f.kind :type) (equal f.kind :basic)))
+          (hint-generation-list
+           tta ho (change-trusted-hint acc :user-fns (acons fn f th.user-fns))
+           state))
          (fn-trans (trans-hint->translation f.translation-hint))
-         (new-fn (if (not (equal fn-trans "")) fn-trans (string fn)))
+         (new-fn
+          (if (not (equal fn-trans ""))
+              fn-trans
+            (downcase-string (string fn))))
          (return-type (get-type tterm ho.supertype))
          (formal-types (get-type-list tta ho.supertype))
          (uninterpreted-hint (change-trans-hint
                               f.translation-hint
                               :translation new-fn
                               :formal-types formal-types
-                              :return-type return-type)))
+                              :return-type return-type))
+         (uninterpreted-fn (change-smt-function
+                            func
+                            :translation-hint uninterpreted-hint
+                            :kind :uninterpreted)))
       (hint-generation-list
        tta ho
        (change-trusted-hint
-        acc :user-fns (acons fn (change-smt-function
-                                 func
-                                 :translation-hint uninterpreted-hint
-                                 :kind :uninterpreted)
-                             th.user-fns))
+        acc :user-fns (acons fn uninterpreted-fn th.user-fns))
        state)))
 
   (define if-hint-generation ((tterm typed-term-p)
@@ -133,11 +140,21 @@
                             (trusted-hint-p acc))))
           (make-trusted-hint))
          ((hint-options ho) hint-options)
-         ((typed-term tt) tterm)
-         (ttc (typed-term-if->cond tt))
-         (ttn (typed-term-if->then tt))
-         (tte (typed-term-if->else tt))
-         (acc-cond (hint-generation ttc ho acc state))
+         ((trusted-hint th) acc)
+         (fn 'if)
+         (exists? (assoc-equal fn ho.function))
+         ((unless exists?)
+          (prog2$ (er hard? 'hint-generation=>if-hint-generation
+                      "Unrecognized function: ~p0, consider adding it to the ~
+                       hint.~%" fn)
+                  th))
+         (new-acc (if (assoc-equal 'if th.user-fns) acc
+                    (change-trusted-hint
+                     th :user-fns (acons fn (cdr exists?) th.user-fns))))
+         (ttc (typed-term-if->cond tterm))
+         (ttn (typed-term-if->then tterm))
+         (tte (typed-term-if->else tterm))
+         (acc-cond (hint-generation ttc ho new-acc state))
          (acc-then (hint-generation ttn ho acc-cond state)))
       (hint-generation tte ho acc-then state)))
 
@@ -183,29 +200,15 @@
 
 (verify-guards hint-generation)
 
-(define add-user-fns ((func-alst symbol-smt-function-alist-p))
-  :returns (user-fns symbol-smt-function-alist-p)
-  :measure (len (symbol-smt-function-alist-fix func-alst))
-  (b* ((func-alst (symbol-smt-function-alist-fix func-alst))
-       ((unless (consp func-alst)) nil)
-       ((cons func-hd func-tl) func-alst)
-       ((cons name func) func-hd)
-       ((smt-function f) func)
-       ((unless (or (equal f.kind :basic) (equal f.kind :type)))
-        (add-user-fns func-tl)))
-    (acons name f (add-user-fns func-tl))))
-
 (define generate-trusted-hint ((options hint-options-p))
   :returns (th trusted-hint-p)
   (b* ((options (hint-options-fix options))
        ((hint-options h) options)
        (th1 (make-trusted-hint))
        (th2 (change-trusted-hint th1 :user-types h.datatype))
-       (user-fns (add-user-fns h.function))
-       (th3 (change-trusted-hint th2 :user-fns user-fns))
        (map (generate-connection-map-list h.datatype nil))
        ((mv scc order) (find-and-sort-scc map)))
-    (change-trusted-hint th3 :scc-info (make-scc-info :scc scc :order order))))
+    (change-trusted-hint th2 :scc-info (make-scc-info :scc scc :order order))))
 
 (define hint-generation-cp ((cl pseudo-term-listp)
                             (hints t)

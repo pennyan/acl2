@@ -17,7 +17,7 @@
 
 (define translate-variable ((sym string-or-symbol-p))
   :returns (translated paragraph-p)
-  (str::downcase-string (lisp-to-python-names sym)))
+  (lisp-to-python-names sym))
 
 (define translate-function-name ((fn symbolp)
                                  (trusted-hint trusted-hint-p))
