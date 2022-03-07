@@ -56,6 +56,7 @@
          ((unless channel)
           (er hard? 'SMT-write=>SMT-write-file "Can't open file ~q0 as SMT file." fname)
           state)
+         (state (set-print-case :downcase state))
          (state (princ$-paragraph acl22smt channel state))
          (state (princ$-paragraph smt-head channel state))
          (state (princ$-paragraph thm channel state)))

@@ -19,7 +19,6 @@
 
 (defprod hint-options
   ((supertype type-to-types-alist-p)
-   (type-fn symbol-smt-function-alist-p)
    (datatype symbol-smt-datatype-alist-p)
    (function symbol-smt-function-alist-p)))
 
@@ -89,7 +88,7 @@
        (fn-acc (symbol-smt-function-alist-fix fn-acc))
        ((unless kind) (mv fn-acc kind))
        ((smt-function k) kind))
-    (mv (acons k.name k fn-acc) k)))
+    (mv (acons k.name (change-smt-function k :kind :type) fn-acc) k)))
 
 (define construct-sum-hint ((type stringp)
                             (sum smt-sum-p)
