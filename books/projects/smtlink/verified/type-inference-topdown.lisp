@@ -323,10 +323,8 @@
          (tta.path-cond (typed-term-list->path-cond tt-actuals))
          (tta.judgements (typed-term-list->judgements tt-actuals))
          ((typed-term ttt) (typed-term->top tt))
-         (- (cw "ttt.judgements: ~q0" ttt.judgements))
          (judge-top
           (unify-expected ttt.judgements ttt.term expected to.supertype))
-         (- (cw "judge-top: ~q0" judge-top))
          (new-top (make-typed-term :term ttt.term
                                    :path-cond ttt.path-cond
                                    :judgements judge-top))
@@ -340,7 +338,6 @@
          (expected-actuals
           (choose-returns judge-top fn actuals tta.judgements tta.path-cond
                           fn-description to state))
-         (- (cw "expected-actuals: ~q0" expected-actuals))
          (new-actuals (unify-type-list tt-actuals expected-actuals to state))
          ;; in order to satisfy the guards of make-typed-fncall
          ((unless (make-typed-fncall-guard new-top new-actuals))
