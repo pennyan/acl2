@@ -180,7 +180,13 @@
                                                      :return-type integerp)
                                                     (animal->category$inline
                                                      :translation "category"
-                                                     :return-type symbolp)))))))
+                                                     :return-type symbolp))))
+                                    :property-hints
+                                    ((uniqueness-of-animal-p-constructor-of-destructors)
+                                     (destructors-of-animal)
+                                     (type-of-animal-destructors)
+                                     (type-of-animal)
+                                     (type-of-animal-p)))))
             :replaces ((:thm replace-of-animal-fix))))))
 
 (deflist integer-list
@@ -318,7 +324,14 @@
                                                     :fn-to-const t
                                                     :translation "nil"
                                                     :return-type integer-list-p)
-                                                   :destructors nil)))))
+                                                   :destructors nil))
+                                    :property-hints
+                                    ((uniqueness-of-integer-list-p-constructor-of-destructors)
+                                     (type-of-integer-list->nil)
+                                     (destructors-of-integer-list->cons)
+                                     (type-of-integer-list->cons-destructors)
+                                     (type-of-integer-list->cons)
+                                     (type-of-integer-list-p)))))
             :replaces ((:thm replace-of-integer-list->cons)
                        (:thm replace-of-integer-list->car)
                        (:thm replace-of-integer-list->cdr)
@@ -405,7 +418,14 @@
                                      (:constructor (maybe-rational-nil
                                                     :translation "nil"
                                                     :return-type maybe-rational-p
-                                                    :fn-to-const t))))))
+                                                    :fn-to-const t)))
+                                    :property-hints
+                                    ((uniqueness-of-maybe-rational-p-constructor-of-destructors)
+                                     (type-of-maybe-rational-nil)
+                                     (destructors-of-maybe-rational-some)
+                                     (type-of-maybe-rational-some-destructors)
+                                     (type-of-maybe-rational-some)
+                                     (type-of-maybe-rational-p)))))
             :replaces ((:thm replace-of-maybe-rational-nil))))))
 
 (deftagsum food
@@ -510,7 +530,24 @@
                                                      :return-type symbolp)
                                                     (food-dumpling->size$inline
                                                      :translation "size"
-                                                     :return-type integerp)))))))))))
+                                                     :return-type integerp))))
+                                    :property-hints ((type-of-food-p-equal)
+                                                     (reflexivity-of-food-p-equal)
+                                                     (symmetricity-of-food-p-equal)
+                                                     (transitivity-of-food-p-equal)
+                                                     (tag-uniqueness-of-food-p)
+                                                     (uniqueness-of-food-p-constructor-of-destructors)
+                                                     (tag-of-food-dumpling)
+                                                     (food-dumpling-of-destructors)
+                                                     (destructors-of-food-dumpling)
+                                                     (type-of-food-dumpling-destructors)
+                                                     (type-of-food-dumpling)
+                                                     (tag-of-food-sandwich)
+                                                     (food-sandwich-of-destructors)
+                                                     (destructors-of-food-sandwich)
+                                                     (type-of-food-sandwich-destructors)
+                                                     (type-of-food-sandwich)
+                                                     (type-of-food-p)))))))))
 
 (defalist-smt symbol-integer-alist-p symbolp symbol-fix integerp ifix)
 
@@ -590,7 +627,14 @@
                                                     :fn-to-const t
                                                     :translation "nil"
                                                     :return-type maybe-symbol-integer-consp)
-                                                   :destructors nil))))
+                                                   :destructors nil))
+                                    :property-hints
+                                    ((uniqueness-of-maybe-symbol-integer-consp-constructor-of-destructors)
+                                     (type-of-maybe-symbol-integer-cons->nil)
+                                     (destructors-of-maybe-symbol-integer-cons->cons)
+                                     (type-of-maybe-symbol-integer-cons->cons-destructors)
+                                     (type-of-maybe-symbol-integer-cons->cons)
+                                     (type-of-maybe-symbol-integer-consp))))
                         :arrays ((symbol-integer-array-p
                                   :recognizer (symbol-integer-array-p
                                                :translation "SymbolIntegerArray")
@@ -603,7 +647,31 @@
                                   :select (symbol-integer-array-select)
                                   :store (symbol-integer-array-store)
                                   :equal (symbol-integer-array-equal)
-                                  :equal-witness (symbol-integer-array-equal-witness))))
+                                  :equal-witness
+                                  (symbol-integer-array-equal-witness)
+                                  :property-hints
+                                  ((type-of-symbol-integer-array-p-equal)
+                                   (reflexivity-of-symbol-integer-array-p-equal)
+                                   (symmetricity-of-symbol-integer-array-p-equal)
+                                   (transitivity-of-symbol-integer-array-p-equal)
+                                   (symbol-integer-array-p-equal-implies-select-equal
+                                    . (:use ((:instance
+                                              symbol-integer-array-equal-implies-select-equal))))
+                                   (select-of-witness-equal-implies-symbol-integer-array-p-equal
+                                    . (:use ((:instance
+                                              select-of-witness-equal-implies-symbol-integer-array-equal))))
+                                   (type-of-symbol-integer-array-p-store)
+                                   (symbol-integer-array-p-select-distinct
+                                    . (:in-theory (enable symbol-integer-array-select-of-symbol-integer-array-store)))
+                                   (symbol-integer-array-p-select-equal
+                                    . (:in-theory (enable
+                                                   symbol-integer-array-select-of-symbol-integer-array-store)))
+                                   (type-of-symbol-integer-array-p-select)
+                                   (type-of-symbol-integer-array-p-init)
+                                   (equal-of-symbol-integer-array-p-init
+                                    . (:in-theory (enable
+                                                   symbol-integer-array-select-of-symbol-integer-array-init)))
+                                   (type-of-symbol-integer-array-p)))))
             :replaces ((:thm
                         symbol-integer-array-translation-of-assoc-equal)
                        (:thm symbol-integer-array-translation-of-acons)
@@ -672,7 +740,14 @@
                                                     :fn-to-const t
                                                     :translation "nil"
                                                     :return-type maybe-symbol-integer-consp)
-                                                   :destructors nil))))
+                                                   :destructors nil))
+                                    :property-hints
+                                    ((uniqueness-of-maybe-symbol-integer-consp-constructor-of-destructors)
+                                     (type-of-maybe-symbol-integer-cons->nil)
+                                     (destructors-of-maybe-symbol-integer-cons->cons)
+                                     (type-of-maybe-symbol-integer-cons->cons-destructors)
+                                     (type-of-maybe-symbol-integer-cons->cons)
+                                     (type-of-maybe-symbol-integer-consp))))
                         :arrays ((symbol-integer-array-p
                                   :recognizer (symbol-integer-array-p
                                                :translation "SymbolIntegerArray")
@@ -685,7 +760,31 @@
                                   :select (symbol-integer-array-select)
                                   :store (symbol-integer-array-store)
                                   :equal (symbol-integer-array-equal)
-                                  :equal-witness (symbol-integer-array-equal-witness))))
+                                  :equal-witness
+                                  (symbol-integer-array-equal-witness)
+                                  :property-hints
+                                  ((type-of-symbol-integer-array-p-equal)
+                                   (reflexivity-of-symbol-integer-array-p-equal)
+                                   (symmetricity-of-symbol-integer-array-p-equal)
+                                   (transitivity-of-symbol-integer-array-p-equal)
+                                   (symbol-integer-array-p-equal-implies-select-equal
+                                    . (:use ((:instance
+                                              symbol-integer-array-equal-implies-select-equal))))
+                                   (select-of-witness-equal-implies-symbol-integer-array-p-equal
+                                    . (:use ((:instance
+                                              select-of-witness-equal-implies-symbol-integer-array-equal))))
+                                   (type-of-symbol-integer-array-p-store)
+                                   (symbol-integer-array-p-select-distinct
+                                    . (:in-theory (enable symbol-integer-array-select-of-symbol-integer-array-store)))
+                                   (symbol-integer-array-p-select-equal
+                                    . (:in-theory (enable
+                                                   symbol-integer-array-select-of-symbol-integer-array-store)))
+                                   (type-of-symbol-integer-array-p-select)
+                                   (type-of-symbol-integer-array-p-init)
+                                   (equal-of-symbol-integer-array-p-init
+                                    . (:in-theory (enable
+                                                   symbol-integer-array-select-of-symbol-integer-array-init)))
+                                   (type-of-symbol-integer-array-p)))))
             :replaces ((:thm
                         symbol-integer-array-translation-of-assoc-equal)
                        (:thm symbol-integer-array-translation-of-acons)
@@ -719,7 +818,12 @@
                                         :formals (x)))))
             :acl2types ((abs-p))
             :datatypes (:abstracts ((abs-p
-                                     :recognizer (abs-p :translation "AbsType")))))))
+                                     :recognizer (abs-p :translation "AbsType")
+                                     :property-hints ((type-of-abs-p-equal)
+                                                      (reflexivity-of-abs-p-equal)
+                                                      (symmetricity-of-abs-p-equal)
+                                                      (transitivity-of-abs-p-equal)
+                                                      (type-of-abs-p))))))))
   :rule-classes nil)
 
 ;; Example 1

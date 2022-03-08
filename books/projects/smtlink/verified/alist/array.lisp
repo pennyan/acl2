@@ -129,7 +129,7 @@
              :use ((:instance ua-equal-necc
                               (k (ua-equal-witness a2 a1)))))))
 
-  (defthm ua-equal-implies-selects-equal
+  (defthm ua-equal-implies-select-equal
     (implies (ua-equal a1 a2)
 	           (equal (ua-select a1 k)
 		                (ua-select a2 k)))
@@ -142,16 +142,16 @@
              (ua-equal a1 a3))
     :hints (("Goal"
              :in-theory (e/d (ua-equal) (ua-select))
-             :use ((:instance ua-equal-implies-selects-equal
+             :use ((:instance ua-equal-implies-select-equal
                               (a1 a1)
                               (a2 a2)
                               (k (ua-equal-witness a1 a3)))
-                   (:instance ua-equal-implies-selects-equal
+                   (:instance ua-equal-implies-select-equal
                               (a1 a2)
                               (a2 a3)
                               (k (ua-equal-witness a1 a3)))))))
 
-  (defthm selects-of-witness-equal-implies-ua-equal
+  (defthm select-of-witness-equal-implies-ua-equal
     (let ((k (ua-equal-witness a1 a2)))
       (equal (ua-equal a1 a2)
 	           (equal (ua-select a1 k)

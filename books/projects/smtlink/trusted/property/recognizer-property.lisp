@@ -12,7 +12,7 @@
 
 (include-book "../../utils/basics")
 (include-book "../../utils/fresh-vars")
-(include-book "../../verified/hint-interface")
+(include-book "../../verified/property-name")
 
 (define recognizer-property ((type smt-datatype-p)
                              (acc pseudo-term-list-listp))
@@ -20,5 +20,8 @@
   (b* ((type (smt-datatype-fix type))
        (acc (pseudo-term-list-list-fix acc))
        (rec (smt-datatype->recognizer type))
-       ((smt-function r) rec))
-    (cons (list `(booleanp (,r.name x))) acc)))
+       (prop-hints (smt-datatype->property-hints type))
+       ((smt-function r) rec)
+       (the-hint (get-hints r.name nil :type-of-recognizer prop-hints)))
+    (cons (list `(hint-please ',the-hint)
+                `(booleanp (,r.name x))) acc)))
