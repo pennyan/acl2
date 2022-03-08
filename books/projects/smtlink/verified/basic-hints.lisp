@@ -34,28 +34,48 @@
                                         :translation-hint
                                         (make-trans-hint
                                          :translation "Symbol_z3.z3Sym"))
-         :equal (make-smt-function :name 'equal))
+         :equal (make-smt-function :name 'equal)
+         :property-hints '((COMMON-LISP::TYPE-OF-SYMBOLP-EQUAL . nil)
+                           (COMMON-LISP::REFLEXIVITY-OF-SYMBOLP-EQUAL . nil)
+                           (COMMON-LISP::SYMMETRICITY-OF-SYMBOLP-EQUAL . nil)
+                           (COMMON-LISP::TRANSITIVITY-OF-SYMBOLP-EQUAL . nil)
+                           (COMMON-LISP::TYPE-OF-SYMBOLP . nil)))
         (make-smt-datatype-basic
          :recognizer (make-smt-function :name 'booleanp
                                         :kind :basic
                                         :translation-hint
                                         (make-trans-hint
                                          :translation "_SMT_.BoolSort()"))
-         :equal (make-smt-function :name 'equal))
+         :equal (make-smt-function :name 'equal)
+         :property-hints '((ACL2::TYPE-OF-BOOLEANP-EQUAL . nil)
+                           (ACL2::REFLEXIVITY-OF-BOOLEANP-EQUAL . nil)
+                           (ACL2::SYMMETRICITY-OF-BOOLEANP-EQUAL . nil)
+                           (ACL2::TRANSITIVITY-OF-BOOLEANP-EQUAL . nil)
+                           (ACL2::TYPE-OF-BOOLEANP . nil)))
         (make-smt-datatype-basic
          :recognizer (make-smt-function :name 'integerp
                                         :kind :basic
                                         :translation-hint
                                         (make-trans-hint
                                          :translation "_SMT_.IntSort()"))
-         :equal (make-smt-function :name 'equal))
+         :equal (make-smt-function :name 'equal)
+         :property-hints '((COMMON-LISP::TYPE-OF-INTEGERP-EQUAL . nil)
+                           (COMMON-LISP::REFLEXIVITY-OF-INTEGERP-EQUAL . nil)
+                           (COMMON-LISP::SYMMETRICITY-OF-INTEGERP-EQUAL . nil)
+                           (COMMON-LISP::TRANSITIVITY-OF-INTEGERP-EQUAL . nil)
+                           (COMMON-LISP::TYPE-OF-INTEGERP . nil)))
         (make-smt-datatype-basic
          :recognizer (make-smt-function :name 'rationalp
                                         :kind :basic
                                         :translation-hint
                                         (make-trans-hint
                                          :translation "_SMT_.RealSort()"))
-         :equal (make-smt-function :name 'equal))))
+         :equal (make-smt-function :name 'equal)
+         :property-hints '((COMMON-LISP::TYPE-OF-RATIONALP-EQUAL . nil)
+                           (COMMON-LISP::REFLEXIVITY-OF-RATIONALP-EQUAL . nil)
+                           (COMMON-LISP::SYMMETRICITY-OF-RATIONALP-EQUAL . nil)
+                           (COMMON-LISP::TRANSITIVITY-OF-RATIONALP-EQUAL . nil)
+                           (COMMON-LISP::TYPE-OF-RATIONALP . nil)))))
 
 (define make-basic-functions ()
   :returns (fun-lst smt-function-list-p)

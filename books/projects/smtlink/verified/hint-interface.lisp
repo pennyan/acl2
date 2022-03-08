@@ -114,13 +114,40 @@
   ((fn smt-function-p :default (make-smt-function))
    (val symbolp)))
 
+(defalist symbol-hints-alist
+  :key-type symbolp
+  :val-type true-listp
+  :true-listp t)
+
+(defthm assoc-equal-of-symbol-hints-alist-p
+  (implies (and (symbol-hints-alist-p x)
+                (assoc-equal y x))
+           (true-listp (cdr (assoc-equal y x)))))
+
 (deftagsum smt-datatype
+  ;; property-hints:
+  ;; reflexivity-of-equal, symmetricity-of-equal, transitivity-of-equal
   (:basic ((recognizer smt-function-p :default (make-smt-function))
-           (equal smt-function-p :default (make-smt-function :name 'equal))))
+           (equal smt-function-p :default (make-smt-function :name 'equal))
+           (property-hints symbol-hints-alist-p)))
+  ;; property-hints:
+  ;; type-of-constructor, constructor-of-destructor
+  ;; type-of-destructors, destructor-of-constructor
+  ;; constructor-of-destructor-with-tag
+  ;; tag-of-constructor
+  ;; tag-uniqueness
+  ;; reflexivity-of-equal, symmetricity-of-equal, transitivity-of-equal
   (:sumtype ((kind maybe-smt-function-p)
              (recognizer smt-function-p :default (make-smt-function))
              (equal smt-function-p :default (make-smt-function :name 'equal))
-             (sums smt-sum-list-p)))
+             (sums smt-sum-list-p)
+             (property-hints symbol-hints-alist-p)))
+  ;; property-hints:
+  ;; type-of-init, equal-of-init
+  ;; type-of-array-select, array-select-equal, array-select-distinct
+  ;; type-of-array-store, array-equal-implies-select-equal,
+  ;; select-of-witness-equal-implies-array-equal
+  ;; reflexivity-of-equal, symmetricity-of-equal, transitivity-of-equal
   (:array ((recognizer smt-function-p :default (make-smt-function))
            (key-type symbolp)
            (val-type symbolp)
@@ -128,9 +155,13 @@
            (select smt-function-p :default (make-smt-function))
            (store smt-function-p :default (make-smt-function))
            (equal smt-function-p :default (make-smt-function))
-           (equal-witness smt-function-p :default (make-smt-function))))
+           (equal-witness smt-function-p :default (make-smt-function))
+           (property-hints symbol-hints-alist-p)))
+  ;; property-hints:
+  ;; reflexivity-of-equal, symmetricity-of-equal, transitivity-of-equal
   (:abstract ((recognizer smt-function-p :default (make-smt-function))
-              (equal smt-function-p :default (make-smt-function :name 'equal)))))
+              (equal smt-function-p :default (make-smt-function :name 'equal))
+              (property-hints symbol-hints-alist-p))))
 
 (define smt-datatype->recognizer ((type smt-datatype-p))
   :returns (rec smt-function-p)
@@ -155,6 +186,18 @@
            (smt-datatype-array->equal type))
           ((equal (smt-datatype-kind type) :abstract)
            (smt-datatype-abstract->equal type)))))
+
+(define smt-datatype->property-hints ((type smt-datatype-p))
+  :returns (rec symbol-hints-alist-p)
+  (b* ((type (smt-datatype-fix type)))
+    (cond ((equal (smt-datatype-kind type) :basic)
+           (smt-datatype-basic->property-hints type))
+          ((equal (smt-datatype-kind type) :sumtype)
+           (smt-datatype-sumtype->property-hints type))
+          ((equal (smt-datatype-kind type) :array)
+           (smt-datatype-array->property-hints type))
+          ((equal (smt-datatype-kind type) :abstract)
+           (smt-datatype-abstract->property-hints type)))))
 
 (deflist smt-datatype-list
   :elt-type smt-datatype-p

@@ -5,66 +5,8 @@
 (include-book "std/strings/top" :dir :system)
 (include-book "std/util/top" :dir :system)
 (include-book "std/util/define-sk" :dir :system)
+(include-book "../stringify")
 (include-book "alist")
-
-; perhaps I should use acl2::deflist or fty::deflist to define
-; stringable-list-p and stringable-list-list-p, but I don't want to choose
-; which package to use for this proof-of-concept example.
-
-; stringable-list-p -- a list of things that are "acceptable" for turning
-;   into strings that will be interned into symbols by make-symbol.
-(define stringable-list-p (x)
-  :returns (ok booleanp)
-  (if x
-      (and (consp x)
-	         (or (stringp (car x))
-	             (symbolp (car x))
-	             (character-listp (car x)))
-	         (stringable-list-p (cdr x)))
-    t))
-
-; stringable-list-list-p -- a list of stringable-list-p's
-(define stringable-list-list-p (x)
-  :returns (ok booleanp)
-  (if x
-      (and (consp x)
-	         (stringable-list-p (car x))
-	         (stringable-list-list-p (cdr x)))
-    t))
-
-
-; stringify-list -- convert a list of stringable-p values into a list of strings
-(define stringify-list ((x stringable-list-p))
-  :returns (s string-listp)
-  :verify-guards nil
-  (b* (((unless (consp x)) nil)
-       ((cons hd0 tl) x)
-       (hd (acl2::implode
-	          (str::upcase-charlist
-	           (if (atom hd0)
-		             (explode-atom hd0 10)
-		           (str::character-list-fix hd0))))))
-    (cons hd (stringify-list tl)))
-  ///
-  (verify-guards stringify-list
-    :hints(("Goal" :in-theory (enable stringable-list-p)))))
-
-
-; mk-symbol -- I first wrote this as make-symbol, but
-;   ACL2 Error in ( DEFUN MAKE-SYMBOL ...):  Symbols in the main Lisp package,
-;   such as MAKE-SYMBOL, may not be defined or constrained.
-; OTOH, :doc, :pe, and :pf have nothing for make-symbol.
-(define mk-symbol ((x stringable-list-p) (sym symbolp))
-  :returns (s symbolp)
-  (intern-in-package-of-symbol
-   (str::join (stringify-list x) "-") sym))
-
-(define mk-symbol-list ((x stringable-list-list-p) (sym symbolp))
-  :returns (s symbol-listp)
-  :guard-hints(("Goal" :in-theory (enable stringable-list-list-p)))
-  (if (consp x)
-      (cons (mk-symbol (car x) sym) (mk-symbol-list (cdr x) sym))
-    nil))
 
 (define defalist-smt-fn
   ((key-val-alist-p symbolp)
@@ -176,8 +118,8 @@
               reflexivity-of-key-val-array-equal
               symmetricity-of-key-val-array-equal
               transitivity-of-key-val-array-equal
-              key-val-array-equal-implies-selects-equal
-              selects-of-witness-equal-implies-key-val-array-equal
+              key-val-array-equal-implies-select-equal
+              select-of-witness-equal-implies-key-val-array-equal
 	            key-val-array-translation-of-nil
 	            key-val-array-translation-of-alist
 	            key-val-array-translation-of-acons
@@ -238,8 +180,8 @@
                          `(reflexivity of ,key-val-array-equal)
                          `(symmetricity of ,key-val-array-equal)
                          `(transitivity of ,key-val-array-equal)
-                         `(,key-val-array-equal implies selects equal)
-                         `(selects of witness equal implies ,key-val-array-equal)
+                         `(,key-val-array-equal implies select equal)
+                         `(select of witness equal implies ,key-val-array-equal)
 	                       `(,key-val array translation of nil)
 	                       `(,key-val array translation of alist)
 	                       `(,key-val array translation of acons)
@@ -647,20 +589,20 @@
                                  (ar-kv-equal a1 a3))
                         transitivity-of-ar-equal)
 
-                (fi-thm ar-kv-equal-implies-selects-equal
+                (fi-thm ar-kv-equal-implies-select-equal
                         (implies (and (ar-kv-p a1) (ar-kv-p a2) (kp k)
                                       (ar-kv-equal a1 a2))
 	                               (equal (ar-kv-select a1 k)
 		                                    (ar-kv-select a2 k)))
-                        ar-equal-implies-selects-equal)
+                        ar-equal-implies-select-equal)
 
-                (fi-thm selects-of-witness-equal-implies-ar-kv-equal
+                (fi-thm select-of-witness-equal-implies-ar-kv-equal
                         (implies (and (ar-kv-p a1) (ar-kv-p a2))
                                  (let ((k (ar-kv-equal-witness a1 a2)))
                                    (equal (ar-kv-equal a1 a2)
 	                                        (equal (ar-kv-select a1 k)
 			                                           (ar-kv-select a2 k)))))
-                        selects-of-witness-equal-implies-ar-equal
+                        select-of-witness-equal-implies-ar-equal
                         :theory '(ar-kv-equal-witness))
 
 	              ;; translation of alist operations to operations on arrays
@@ -1174,7 +1116,7 @@
                     :in-theory '(,key-val-array-equal ,key-val-array-p)
                     :use ((:instance transitivity-of-ar-kv-equal)))))
 
-         (defthm ,key-val-array-equal-implies-selects-equal
+         (defthm ,key-val-array-equal-implies-select-equal
            (implies (and (,key-val-array-p a1) (,key-val-array-p a2) (,key-p k)
                          (,key-val-array-equal a1 a2))
 	                  (equal (,key-val-array-select a1 k)
@@ -1182,10 +1124,10 @@
            :hints (("Goal"
                     :in-theory '(,key-val-array-equal
                                  ,key-val-array-p ,key-p-equals-kp ,key-val-array-select)
-                    :use ((:instance ar-kv-equal-implies-selects-equal))))
+                    :use ((:instance ar-kv-equal-implies-select-equal))))
            :rule-classes nil)
 
-         (defthmd ,selects-of-witness-equal-implies-key-val-array-equal
+         (defthmd ,select-of-witness-equal-implies-key-val-array-equal
            (implies (and (,key-val-array-p a1) (,key-val-array-p a2))
                     (let ((k (,key-val-array-equal-witness a1 a2)))
                       (equal (,key-val-array-equal a1 a2)
@@ -1195,7 +1137,7 @@
                     :in-theory '(,key-val-array-equal-witness
                                  ,key-val-array-equal ,key-val-array-p
                                  ,key-val-array-select)
-                    :use ((:instance selects-of-witness-equal-implies-ar-kv-equal)))))
+                    :use ((:instance select-of-witness-equal-implies-ar-kv-equal)))))
 
 	       ;; translating alist values and operations to array versions
          (defthm ,key-val-array-translation-of-nil

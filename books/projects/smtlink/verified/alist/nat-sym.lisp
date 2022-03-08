@@ -407,20 +407,20 @@
                           (ar-kv-equal a1 a3))
                  transitivity-of-ar-equal)
 
-         (fi-thm ar-kv-equal-implies-selects-equal
+         (fi-thm ar-kv-equal-implies-select-equal
            (implies (and (ar-kv-p a1) (ar-kv-p a2) (kp k)
                          (ar-kv-equal a1 a2))
 	                  (equal (ar-kv-select a1 k)
 		                       (ar-kv-select a2 k)))
-           ar-equal-implies-selects-equal)
+           ar-equal-implies-select-equal)
 
-         (fi-thm selects-of-witness-equal-implies-ar-kv-equal
+         (fi-thm select-of-witness-equal-implies-ar-kv-equal
            (implies (and (ar-kv-p a1) (ar-kv-p a2))
                     (let ((k (ar-kv-equal-witness a1 a2)))
                       (equal (ar-kv-equal a1 a2)
 	                           (equal (ar-kv-select a1 k)
 			                              (ar-kv-select a2 k)))))
-           selects-of-witness-equal-implies-ar-equal
+           select-of-witness-equal-implies-ar-equal
            :theory '(ar-kv-equal-witness))
 
          ;; translation of alist operations to operations on arrays
@@ -936,7 +936,7 @@
              :in-theory '(nat-sym-array-equal nat-sym-array-p)
              :use ((:instance transitivity-of-ar-kv-equal)))))
 
-  (defthmd nat-sym-array-equal-implies-selects-equal
+  (defthmd nat-sym-array-equal-implies-select-equal
     (implies (and (nat-sym-array-p a1) (nat-sym-array-p a2) (natp k)
                   (nat-sym-array-equal a1 a2))
 	           (equal (nat-sym-array-select a1 k)
@@ -944,9 +944,9 @@
     :hints (("Goal"
              :in-theory '(nat-sym-array-equal
                           nat-sym-array-p natp-equals-kp nat-sym-array-select)
-             :use ((:instance ar-kv-equal-implies-selects-equal)))))
+             :use ((:instance ar-kv-equal-implies-select-equal)))))
 
-  (defthmd selects-of-witness-equal-implies-nat-sym-array-equal
+  (defthmd select-of-witness-equal-implies-nat-sym-array-equal
     (implies (and (nat-sym-array-p a1) (nat-sym-array-p a2))
              (let ((k (nat-sym-array-equal-witness a1 a2)))
                (equal (nat-sym-array-equal a1 a2)
@@ -956,7 +956,7 @@
              :in-theory '(nat-sym-array-equal-witness
                           nat-sym-array-equal nat-sym-array-p
                           nat-sym-array-select)
-             :use ((:instance selects-of-witness-equal-implies-ar-kv-equal)))))
+             :use ((:instance select-of-witness-equal-implies-ar-kv-equal)))))
 
 ;; translating alist values and operations to array versions
 (defthm nat-sym-array-translation-of-nil
