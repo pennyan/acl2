@@ -281,7 +281,7 @@
            (ar-equal a2 a1))
   :hints (("Goal"
            :in-theory (e/d (ar-equal)
-                           (selects-of-witness-equal-implies-ua-equal)))))
+                           (select-of-witness-equal-implies-ua-equal)))))
 
 (defthm transitivity-of-ar-equal
   (implies (and (ar-p a1) (ar-p a2) (ar-p a3)
@@ -289,9 +289,9 @@
            (ar-equal a1 a3))
   :hints (("Goal"
            :in-theory (e/d (ar-equal)
-                           (selects-of-witness-equal-implies-ua-equal)))))
+                           (select-of-witness-equal-implies-ua-equal)))))
 
-(defthm ar-equal-implies-selects-equal
+(defthm ar-equal-implies-select-equal
   (implies (and (ar-p a1) (ar-p a2) (ar-key-p k)
                 (ar-equal a1 a2))
 	         (equal (ar-select a1 k)
@@ -299,9 +299,9 @@
   :rule-classes nil
   :hints (("Goal"
            :in-theory (enable ar-equal ar-select)
-           :use ((:instance ua-equal-implies-selects-equal)))))
+           :use ((:instance ua-equal-implies-select-equal)))))
 
-(defthm selects-of-witness-equal-implies-ar-equal
+(defthm select-of-witness-equal-implies-ar-equal
   (implies (and (ar-p a1) (ar-p a2))
            (let ((k (ar-equal-witness a1 a2)))
              (equal (ar-equal a1 a2)

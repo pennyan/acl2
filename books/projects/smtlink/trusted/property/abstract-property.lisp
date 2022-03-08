@@ -12,7 +12,6 @@
 
 (include-book "../../utils/basics")
 (include-book "../../utils/fresh-vars")
-(include-book "../../verified/hint-interface")
 (include-book "recognizer-property")
 (include-book "equality-property")
 

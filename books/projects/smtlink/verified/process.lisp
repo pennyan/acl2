@@ -539,6 +539,26 @@
     :true-listp t)
   )
 
+(defsection property-hints-syntax
+  :parents (datatype-syntax)
+
+  (define property-hints-syntax-p ((term t))
+    :returns (syntax-good? booleanp)
+    :short "Recognizer for property-hints."
+    (b* (((unless (true-listp term)) nil)
+         ((unless (consp term)) nil)
+         ((cons name hints) term))
+      (and (symbolp name)
+           (true-listp hints))))
+
+  (easy-fix property-hints-syntax '(nil :hints nil))
+
+  (deflist property-hints-list-syntax
+    :elt-type property-hints-syntax-p
+    :pred property-hints-list-syntax-p
+    :true-listp t)
+  )
+
 (defsection sumtype-option-syntax
   :parents (sumtype-syntax)
 
@@ -558,9 +578,11 @@
             (:recognizer (function-syntax-p second))
             (:equal (function-syntax-p second))
             (:sums (type-sum-list-syntax-p second))
+            (:property-hints (property-hints-list-syntax-p second))
             (t (er hard? 'process=>sumtype-option-syntax-p-helper
-                   "Smtlink-hint sumtype option doesn't include: ~p0.
-                       They are :kind, :recognizer, and :sums.~%"
+                   "Smtlink-hint sumtype option doesn't include: ~p0. ~
+                       They are :kind, :recognizer, :sums and ~
+                       :property-hints.~%"
                    first)))))
       (and first-ok
            (sumtype-option-syntax-p-helper rest (cons first used))))
@@ -575,15 +597,18 @@
                        (implies (equal (car term) :equal)
                                 (function-syntax-p (cadr term)))
                        (implies (equal (car term) :sums)
-                                (type-sum-list-syntax-p (cadr term)))))
+                                (type-sum-list-syntax-p (cadr term)))
+                       (implies (equal (car term) :property-hints)
+                                (property-hints-list-syntax-p (cadr term)))))
          :hints (("Goal"
                   :expand (sumtype-option-syntax-p-helper term used)))
          :name definition-of-sumtype-option-syntax-p-helper)
      (ok (implies (and (and ok (consp term) (symbol-listp used))
                        (not (equal (car term) :kind))
                        (not (equal (car term) :recognizer))
-                       (not (equal (car term) :equal)))
-                  (equal (car term) :sums))
+                       (not (equal (car term) :equal))
+                       (not (equal (car term) :sums)))
+                  (equal (car term) :property-hints))
          :hints (("Goal"
                   :expand (sumtype-option-syntax-p-helper term used)))
          :name option-of-sumtype-option-syntax-p-helper))
@@ -616,13 +641,16 @@
                        (implies (equal (car term) :equal)
                                 (function-syntax-p (cadr term)))
                        (implies (equal (car term) :sums)
-                                (type-sum-list-syntax-p (cadr term)))))
+                                (type-sum-list-syntax-p (cadr term)))
+                       (implies (equal (car term) :property-hints)
+                                (property-hints-list-syntax-p (cadr term)))))
          :name definition-of-sumtype-option-syntax-p)
      (ok (implies (and (and ok (consp term))
                        (not (equal (car term) :kind))
                        (not (equal (car term) :recognizer))
-                       (not (equal (car term) :equal)))
-                  (equal (car term) :sums))
+                       (not (equal (car term) :equal))
+                       (not (equal (car term) :sums)))
+                  (equal (car term) :property-hints))
          :name option-of-sumtype-option-syntax-p)
      (ok (implies (and ok (consp term))
                   (sumtype-option-syntax-p (cddr term)))
@@ -756,10 +784,12 @@
             (:store (function-syntax-p second))
             (:equal (function-syntax-p second))
             (:equal-witness (function-syntax-p second))
+            (:property-hints (property-hints-list-syntax-p second))
             (t (er hard? 'process=>-option-syntax-p-helper
                    "Smtlink-hint array option doesn't include: ~p0.
                        They are :recognizer, :key-type, :val-type, :init, ~
-                       :select, :store, :equal and :equal-witness.~%"
+                       :select, :store, :equal, :equal-witness and ~
+                       :property-hints.~%"
                    first)))))
       (and first-ok
            (array-option-syntax-p-helper rest (cons first used))))
@@ -782,7 +812,9 @@
                        (implies (equal (car term) :equal)
                                 (function-syntax-p (cadr term)))
                        (implies (equal (car term) :equal-witness)
-                                (function-syntax-p (cadr term)))))
+                                (function-syntax-p (cadr term)))
+                       (implies (equal (car term) :property-hints)
+                                (property-hints-list-syntax-p (cadr term)))))
          :hints (("Goal"
                   :expand (array-option-syntax-p-helper term used)))
          :name definition-of-array-option-syntax-p-helper)
@@ -793,8 +825,9 @@
                        (not (equal (car term) :init))
                        (not (equal (car term) :select))
                        (not (equal (car term) :store))
-                       (not (equal (car term) :equal)))
-                  (equal (car term) :equal-witness))
+                       (not (equal (car term) :equal))
+                       (not (equal (car term) :equal-witness)))
+                  (equal (car term) :property-hints))
          :hints (("Goal"
                   :expand (array-option-syntax-p-helper term used)))
          :name option-of-array-option-syntax-p-helper))
@@ -835,7 +868,9 @@
                        (implies (equal (car term) :equal)
                                 (function-syntax-p (cadr term)))
                        (implies (equal (car term) :equal-witness)
-                                (function-syntax-p (cadr term)))))
+                                (function-syntax-p (cadr term)))
+                       (implies (equal (car term) :property-hints)
+                                (property-hints-list-syntax-p (cadr term)))))
          :name definition-of-array-option-syntax-p)
      (ok (implies (and (and ok (consp term))
                        (not (equal (car term) :recognizer))
@@ -844,8 +879,9 @@
                        (not (equal (car term) :init))
                        (not (equal (car term) :select))
                        (not (equal (car term) :store))
-                       (not (equal (car term) :equal)))
-                  (equal (car term) :equal-witness))
+                       (not (equal (car term) :equal))
+                       (not (equal (car term) :equal-witness)))
+                  (equal (car term) :property-hints))
          :name option-of-array-option-syntax-p)
      (ok (implies (and ok (consp term))
                   (array-option-syntax-p (cddr term)))
@@ -893,9 +929,10 @@
           (case first
             (:recognizer (function-syntax-p second))
             (:equal (function-syntax-p second))
+            (:property-hints (property-hints-list-syntax-p second))
             (t (er hard? 'process=>abstract-option-syntax-p-helper
                    "Smtlink-hint abstract datatype option doesn't include: ~p0.
-                       They are :recognizer and :equal.~%"
+                       They are :recognizer, :equal and :property-hints.~%"
                    first)))))
       (and first-ok
            (abstract-option-syntax-p-helper rest (cons first used))))
@@ -906,13 +943,16 @@
                        (implies (equal (car term) :recognizer)
                                 (function-syntax-p (cadr term)))
                        (implies (equal (car term) :equal)
-                                (function-syntax-p (cadr term)))))
+                                (function-syntax-p (cadr term)))
+                       (implies (equal (car term) :property-hints)
+                                (property-hints-list-syntax-p (cadr term)))))
          :hints (("Goal"
                   :expand (abstract-option-syntax-p-helper term used)))
          :name definition-of-abstract-option-syntax-p-helper)
      (ok (implies (and (and ok (consp term) (symbol-listp used)
+                            (not (equal (car term) :recognizer))
                             (not (equal (car term) :equal))))
-                  (equal (car term) :recognizer))
+                  (equal (car term) :property-hints))
          :hints (("Goal"
                   :expand (abstract-option-syntax-p-helper term used)))
          :name option-of-abstract-option-syntax-p-helper))
@@ -941,11 +981,14 @@
                        (implies (equal (car term) :recognizer)
                                 (function-syntax-p (cadr term)))
                        (implies (equal (car term) :equal)
-                                (function-syntax-p (cadr term)))))
+                                (function-syntax-p (cadr term)))
+                       (implies (equal (car term) :property-hints)
+                                (property-hints-list-syntax-p (cadr term)))))
          :name definition-of-abstract-option-syntax-p)
      (ok (implies (and (and ok (consp term)
+                            (not (equal (car term) :recognizer))
                             (not (equal (car term) :equal))))
-                  (equal (car term) :recognizer))
+                  (equal (car term) :property-hints))
          :name option-of-abstract-option-syntax-p)
      (ok (implies (and ok (consp term))
                   (abstract-option-syntax-p (cddr term)))
@@ -1557,6 +1600,26 @@
     (cons (construct-sub/supertype sub-hd)
           (construct-sub/supertype-list sub-tl))))
 
+(define construct-property-hints-list
+  ((prop-hints-lst property-hints-list-syntax-p))
+  :returns (new-prop-alst
+            symbol-hints-alist-p
+            :hints (("Goal"
+                     :in-theory
+                     (enable property-hints-list-syntax-fix
+                             property-hints-syntax-fix property-hints-syntax-p)
+                     :expand (property-hints-list-syntax-fix prop-hints-lst))))
+  :measure (len (property-hints-list-syntax-fix prop-hints-lst))
+  :verify-guards nil
+  (b* ((prop-hints-lst (property-hints-list-syntax-fix prop-hints-lst))
+       ((unless (consp prop-hints-lst)) nil)
+       ((cons hints-hd hints-tl) prop-hints-lst)
+       ((cons name hints) hints-hd))
+    (acons name hints (construct-property-hints-list hints-tl))))
+
+(verify-guards construct-property-hints-list
+  :hints (("Goal" :in-theory (enable property-hints-syntax-p))))
+
 (define construct-sumtype-option-lst ((type-opt-lst sumtype-option-syntax-p)
                                       (smt-type smt-datatype-p))
   :guard (equal (smt-datatype-kind smt-type) :sumtype)
@@ -1580,7 +1643,11 @@
             smt-type :equal (construct-function content)))
           (:sums
            (change-smt-datatype-sumtype
-            smt-type :sums (construct-type-sum-list content))))))
+            smt-type :sums (construct-type-sum-list content)))
+          (:property-hints
+           (change-smt-datatype-sumtype
+            smt-type
+            :property-hints (construct-property-hints-list content))))))
     (construct-sumtype-option-lst rest new-smt-type)))
 
 (define construct-sumtype ((type sumtype-syntax-p))
@@ -1658,13 +1725,16 @@
             smt-type :equal (construct-function content)))
           (:equal-witness
            (change-smt-datatype-array
-            smt-type :equal-witness (construct-function content))))))
+            smt-type :equal-witness (construct-function content)))
+          (:property-hints
+           (change-smt-datatype-array
+            smt-type
+            :property-hints (construct-property-hints-list content))))))
     (construct-array-option-lst rest new-smt-type)))
 
 (define construct-array ((type array-syntax-p))
   :returns (new-type smt-datatype-p)
-  :guard-hints (("Goal" :in-theory (enable array-syntax-fix
-                                           array-syntax-p)))
+  :guard-hints (("Goal" :in-theory (enable array-syntax-fix array-syntax-p)))
   (b* ((type (array-syntax-fix type))
        ((cons & type-opt-lst) type))
     (construct-array-option-lst type-opt-lst (make-smt-datatype-array))))
@@ -1700,7 +1770,11 @@
             smt-type :recognizer (construct-function content)))
           (:equal
            (change-smt-datatype-abstract
-            smt-type :equal (construct-function content))))))
+            smt-type :equal (construct-function content)))
+          (:property-hints
+           (change-smt-datatype-abstract
+            smt-type
+            :property-hints (construct-property-hints-list content))))))
     (construct-abstract-option-lst rest new-smt-type)))
 
 (define construct-abstract ((type abstract-syntax-p))
