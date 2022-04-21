@@ -7,18 +7,6 @@
 # See the LICENSE file distributed with ACL2
 import re
 from z3 import *
-from functools import reduce # for Python 2/3 compatibility
-
-def sort(x):
-    if type(x) == bool:    return BoolSort()
-    elif type(x) == int:   return IntSort()
-    elif type(x) == float: return RealSort()
-    elif hasattr(x, 'sort'):
-        if x.sort() == BoolSort(): return BoolSort()
-        if x.sort() == IntSort():  return IntSort()
-        if x.sort() == RealSort(): return RealSort()
-        else:
-            raise Exception('unknown sort for expression')
 
 class ACL22SMT(object):
 
@@ -78,10 +66,29 @@ class ACL22SMT(object):
     def IntSort(self): return IntSort()
     def RealSort(self): return RealSort()
     def BoolSort(self): return BoolSort()
+
     # type related functions
-    def integerp(self, x): return sort(x) == IntSort()
-    def rationalp(self, x): return sort(x) == RealSort()
-    def booleanp(self, x): return sort(x) == BoolSort()
+    def isInt(self, x):
+        if(type(x) is int):
+            return True
+        elif(hasattr(x, 'sort') and x.sort() == IntSort()):
+            return True
+        else:
+            False
+
+    def isReal(self, x):
+        if(type(x) is float):
+            return True
+        elif(hasattr(x, 'sort') and x.sort() == RealSort()):
+            return True
+        else:
+            False
+
+    def isNum(self, x):
+        if(self.isInt(x) or self.isReal(x)):
+            return True
+        else:
+            return False
 
     # manually casting integer sort to real sort
     def to_real(self, x):
@@ -90,21 +97,41 @@ class ACL22SMT(object):
         else:
             return(x)
 
-    def plus(self, *args): return reduce(lambda x, y: x+y, args)
-    def times(self, *args): return reduce(lambda x, y: x*y, args)
+    def plus(self, x, y):
+        if(self.isNum(x) and self.isNum(y)):
+            return x+y
+        else:
+            raise Exception('Arguments to plus are of the wrong sorts.')
+            
+    def times(self, x, y):
+        if(self.isNum(x) and self.isNum(y)):
+            return x*y
+        else:
+            raise Exception('Arguments to times are of the wrong sorts.')
 
     def reciprocal(self, x):
-        if(type(x) is int): return(Q(1,x))
-        elif(type(x) is float): return 1.0/x
-        # Casting variable of IntSort to real
-        else: return 1.0/self.to_real(x)
+        if(self.isNum(x)):
+            if(type(x) is int): return(Q(1,x))
+            elif(type(x) is float): return 1.0/x
+            # Casting variable of IntSort to real
+            else: return 1.0/self.to_real(x)
+        else:
+            raise Exception('Argument to reciprocal is of the wrong sort.')
 
-    def negate(self, x): return -x
-    def lt(self, x,y): return self.to_real(x) < self.to_real(y)
-    def equal(self, x,y): return self.to_real(x) == self.to_real(y)
+    def negate(self, x):
+        if(self.isNum(x)):
+            return -x
+        else:
+            raise Exception('Argument to negate is of the wrong sort.')
+
+    def lt(self, x,y):
+        if(self.isNum(x) and self.isNum(y)):
+            return x < y
+        else:
+            raise Exception('Arguments to lt are of the wrong sorts.')
+
     def notx(self, x): return Not(x)
-    def implies(self, x, y): return Implies(x,y)
-    def Qx(self, x, y): return Q(x,y)
+    # def implies(self, x, y): return Implies(x,y)
 
     def ifx(self, condx, thenx, elsex):
         try:
@@ -114,71 +141,7 @@ class ACL22SMT(object):
             print('If(' + str(condx) + ', ' + str(thenx) + ', ' + str(elsex) + ')')
             raise Exception('giving up')
 
-    # def hint_okay(self):
-    #     return False
-
-    # # -------------------------------------------------------------
-    # #       Replacing uninterpreted functions with free vars
-    # fun2var_count = 0
-    # funQ = dict()  # uninterpreted functions we've seen
-
-    # def next_fresh_var(self):
-    #     count = self.fun2var_count
-    #     self.fun2var_count = self.fun2var_count+1
-    #     return count
-
-    # def reportFun(self, report=None):
-    #     def print_msg(*args):
-    #         print(''.join([str(a) for a in args]))
-    #         return None
-    #     def dont_print_msg(*args):
-    #         return None
-    #     if((report is None) or (report is False)): return dont_print_msg
-    #     elif(report is True): return print_msg
-    #     else: return report
-
-    # # is x uninterpreted function instance
-    # def is_uninterpreted_fun(self, x):
-    #     d = x.decl()
-    #     return(
-    #         all([hasattr(d, a) for a in ('__call__', 'arity', 'domain', 'kind', 'range')]) and
-    #         (d.kind() == z3.Z3_OP_UNINTERPRETED) and
-    #         d.arity() > 0)
-
-    # # I'll assume that all arguments are z3 expressions except for possibly the
-    # # last one.  If the last one is a function, then it's the 'report' function
-    # # for debugging.
-    # def fun_to_var(self, exprs, report=None):
-    #     report = self.reportFun(report)
-    #     report('fun_to_var(', exprs, ', ', report, ')')
-
-    #     def helper(x):
-    #         if(x is None):
-    #             return x
-    #         elif(self.is_uninterpreted_fun(x)):
-    #             if(x in self.funQ):  # found a match
-    #                 return self.funQ[x]
-    #             else:
-    #                 rangeSort = x.decl().range()
-    #                 varName = 'SMT_fun2var_' + str(self.next_fresh_var())
-    #                 newVar = z3.Const(varName, rangeSort)
-    #                 self.funQ[x] = newVar
-    #                 return newVar
-    #         else:
-    #             ch = x.children()
-    #             newch = self.fun_to_var(ch, report)
-    #             if(len(ch) != len(newch)):
-    #                 raise Exception('Internal error')
-    #             elif(len(newch) == x.decl().arity()):
-    #                 return x.decl().__call__(*newch)
-    #             elif((x.decl().arity() == 2) and (len(newch) > 2)):
-    #                 return reduce(x.decl(), newch)
-    #             else:
-    #                 raise Exception('Internal error')
-
-    #     newExprs = [helper(x) for x in exprs]
-    #     report('fun_to_var(', exprs, ') -> ', newExprs)
-    #     return newExprs
+    def equal(self, x,y): return self.to_real(x) == self.to_real(y)
 
     # -------------------------------------------------------------
     #       Proof functions and counter-example generation
