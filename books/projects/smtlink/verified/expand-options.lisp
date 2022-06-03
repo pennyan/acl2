@@ -26,6 +26,7 @@
 
 (defprod expand-options
   ((functions symbol-smt-function-alist-p)
+   (expand-with-vars booleanp)
    (wrld-fn-len natp)))
 
 (define construct-function-info ((func-lst smt-function-list-p))
@@ -43,4 +44,5 @@
        ((smtlink-hint h) hints)
        (functions (construct-function-info h.functions)))
     (make-expand-options :functions functions
+                         :expand-with-vars h.expand-with-vars
                          :wrld-fn-len h.wrld-fn-len)))

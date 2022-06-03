@@ -337,6 +337,63 @@
                        (:thm replace-of-integer-list->cdr)
                        (:thm replace-of-integer-list->nil))))))
 
+(defun x^2-y^2 (x y) (- (* x x) (* y y)))
+
+(defthm test61
+  (implies (and (integer-list-p x) (rationalp y)
+                (not (equal x nil)))
+           (implies (and (<= (+ (* (/ 9 8) (car x) (car x)) (* y y)) 1)
+                         (<=  (x^2-y^2 (car x) y) 1))
+                    (< y (- (* 3 (- (car x) (/ 17 8)) (- (car x) (/ 17 8))) 3))))
+  :hints (("Goal"
+           :smtlink
+           (:functions ((cons
+                         :return ((:thm return-of-cons-for-integer-list
+                                   :formals (x y))))
+                        (car
+                         :return ((:thm return-of-car-for-integer-list
+                                   :formals (x))))
+                        (cdr
+                         :return ((:thm return-of-cdr-for-integer-list
+                                   :formals (x))))
+                        (equal
+                         :kind :basic
+                         :translation "_SMT_.equal"
+                         :return ((:thm return-of-equal-for-integer-list
+                                        :formals (x y))))
+                        (integer-list-p
+                         :return ((:thm booleanp-of-integer-list-p
+                                        :formals (x)))))
+            :acl2types ((integer-list-p))
+            :datatypes (:sumtypes ((integer-list-p
+                                    :recognizer (integer-list-p :translation "IntegerList")
+                                    :sums
+                                    ((:constructor (integer-list->cons
+                                                    :translation "cons"
+                                                    :return-type integer-list-p)
+                                      :destructors ((integer-list->car
+                                                     :translation "car"
+                                                     :return-type integerp)
+                                                    (integer-list->cdr
+                                                     :translation "cdr"
+                                                     :return-type integer-list-p)))
+                                     (:constructor (integer-list->nil
+                                                    :fn-to-const t
+                                                    :translation "nil"
+                                                    :return-type integer-list-p)
+                                                   :destructors nil))
+                                    :property-hints
+                                    ((uniqueness-of-integer-list-p-constructor-of-destructors)
+                                     (type-of-integer-list->nil)
+                                     (destructors-of-integer-list->cons)
+                                     (type-of-integer-list->cons-destructors)
+                                     (type-of-integer-list->cons)
+                                     (type-of-integer-list-p)))))
+            :replaces ((:thm replace-of-integer-list->cons)
+                       (:thm replace-of-integer-list->car)
+                       (:thm replace-of-integer-list->cdr)
+                       (:thm replace-of-integer-list->nil))))))
+
 (defoption maybe-rational rationalp)
 
 (defthmd booleanp-of-maybe-rational-p

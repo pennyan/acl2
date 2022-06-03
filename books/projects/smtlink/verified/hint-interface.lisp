@@ -365,6 +365,7 @@
    (datatypes smt-datatype-list-p :default nil)
    (replaces thm-spec-list-p :default nil)
    (hypotheses smt-hypo-list-p :default nil)
+   (expand-with-vars booleanp :default nil)
    (configurations smt-config-p :default (make-smt-config))
    (int-to-ratp int-to-rat-p :default (make-int-to-rat-switch :okp nil))
    (under-inductionp symbolp :default nil)
