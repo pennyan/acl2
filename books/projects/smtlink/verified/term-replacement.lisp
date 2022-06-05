@@ -539,10 +539,11 @@
        (h (construct-replace-options smtlink-hint state))
        ((mv okp tterm)
         (case-match goal
-          (('implies judges term)
+          (('implies ('if judges smt-judges ''nil) term)
            (mv t (make-typed-term :term term
                                   :path-cond ''t
-                                  :judgements judges)))
+                                  :judgements judges
+                                  :smt-judgements smt-judges)))
           (& (mv nil (make-typed-term)))))
        ((unless okp)
         (prog2$ (er hard? 'term-replacement=>term-replacement-fn
@@ -560,8 +561,10 @@
        ((var-acc a) new-va)
        (updated-tterm (add-freevar-hypo-list replaced-tterm a.hyp-alst))
        (updated-judgements (typed-term->judgements updated-tterm))
+       (updated-smt-judgements (typed-term->smt-judgements updated-tterm))
        (updated-term (typed-term->term updated-tterm))
-       (new-cl `((implies ,updated-judgements ,updated-term)))
+       (new-cl `((implies (if ,updated-judgements ,updated-smt-judgements 'nil)
+                          ,updated-term)))
        (next-cp (cdr (assoc-equal 'term-replacement *SMT-architecture*)))
        ((if (null next-cp)) (list cl))
        (the-hint

@@ -218,10 +218,11 @@
        (goal (disjoin cl))
        ((mv okp tterm)
         (case-match goal
-          (('implies judges term)
+          (('implies ('if judges smt-judges ''nil) term)
            (mv t (make-typed-term :term term
                                   :path-cond ''t
-                                  :judgements judges)))
+                                  :judgements judges
+                                  :smt-judgements smt-judges)))
           (& (mv nil (make-typed-term)))))
        ((unless okp)
         (prog2$ (er hard? 'hint-generation=>hint-generation-cp

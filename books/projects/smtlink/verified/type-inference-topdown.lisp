@@ -134,6 +134,7 @@
              (typed-term
               (typed-term->term tterm)
               (typed-term->path-cond tterm)
+              (typed-term->judgements tterm)
               (unify-expected (typed-term->judgements tterm)
                               (typed-term->term tterm)
                               expected supertype)))
@@ -172,8 +173,9 @@
          tterm)))
     (make-typed-term :term tt.term
                      :path-cond tt.path-cond
-                     :judgements (unify-expected tt.judgements tt.term expected
-                                                 to.supertype)))
+                     :judgements tt.judgements
+                     :smt-judgements (unify-expected tt.judgements tt.term
+                                                     expected to.supertype)))
   ///
   (more-returns
    (new-tt (implies (and (pseudo-termp expected)
@@ -225,8 +227,9 @@
          tterm)))
     (make-typed-term :term tt.term
                      :path-cond tt.path-cond
-                     :judgements (unify-expected tt.judgements tt.term expected
-                                                 to.supertype)))
+                     :judgements tt.judgements
+                     :smt-judgements (unify-expected tt.judgements tt.term
+                                                     expected to.supertype)))
   ///
   (more-returns
    (new-tt (implies (and (pseudo-termp expected)
@@ -327,7 +330,8 @@
           (unify-expected ttt.judgements ttt.term expected to.supertype))
          (new-top (make-typed-term :term ttt.term
                                    :path-cond ttt.path-cond
-                                   :judgements judge-top))
+                                   :judgements ttt.judgements
+                                   :smt-judgements judge-top))
          (conspair (assoc-equal fn to.functions))
          ((unless conspair)
           (prog2$ (er hard? 'type-inference-topdown=>unify-fncall
@@ -369,7 +373,8 @@
           (unify-expected tt-top.judgements tt-top.term expected to.supertype))
          (new-top (make-typed-term :term tt-top.term
                                    :path-cond tt-top.path-cond
-                                   :judgements judge-top))
+                                   :judgements tt-top.judgements
+                                   :smt-judgements judge-top))
          (judge-then-top
           (type-judgement-top tt-then.judgements tt-then.term options))
          (judge-else-top
@@ -740,10 +745,11 @@
        (h (construct-type-options smtlink-hint goal))
        ((mv okp tterm)
         (case-match goal
-          (('implies judges term)
+          (('implies ('if judges smt-judges ''nil) term)
            (mv t (make-typed-term :term term
                                   :path-cond ''t
-                                  :judgements judges)))
+                                  :judgements judges
+                                  :smt-judgements smt-judges)))
           (& (mv nil (make-typed-term)))))
        ((unless okp)
         (prog2$ (er hard? 'type-inference-topdown=>type-judge-topdown-cp
@@ -755,8 +761,10 @@
                 (value (list cl))))
        (unified-tterm (unify-type tterm ''t h state))
        (unified-judgements (typed-term->judgements unified-tterm))
+       (unified-smt-judgements (typed-term->smt-judgements unified-tterm))
        (unified-term (typed-term->term unified-tterm))
-       (new-cl `((implies ,unified-judgements ,unified-term)))
+       (new-cl `((implies (if ,unified-judgements ,unified-smt-judgements 'nil)
+                          ,unified-term)))
        (next-cp (cdr (assoc-equal 'type-judge-topdown *SMT-architecture*)))
        ((if (null next-cp)) (value (list cl)))
        (the-hint
@@ -776,16 +784,23 @@
            (ev-smtcp (disjoin cl) a))
   :hints (("Goal"
            :do-not-induct t
-           :in-theory (e/d (type-judge-topdown-cp correct-typed-term disjoin)
+           :in-theory (e/d (type-judge-topdown-cp correct-typed-term)
                            (correctness-of-unify-type
                             unify-type-maintains-path-cond
-                            unify-type-maintains-term))
+                            unify-type-maintains-term
+                            consp-of-is-conjunct?
+                            acl2::pseudo-termp-of-car-when-pseudo-term-listp
+                            symbol-listp
+                            acl2::pseudo-term-listp-of-cdr-when-pseudo-term-listp
+                            pseudo-term-listp-of-symbol-listp
+                            pseudo-term-list-listp))
            :use ((:instance correctness-of-unify-type
                             (options (construct-type-options hints (disjoin cl)))
                             (expected ''t)
                             (tterm (typed-term (caddr (disjoin cl))
                                                ''t
-                                               (cadr (disjoin cl))))
+                                               (cadr (cadr (disjoin cl)))
+                                               (caddr (cadr (disjoin cl)))))
                             (a a)
                             (state state))
                  (:instance unify-type-maintains-path-cond
@@ -793,11 +808,13 @@
                             (expected ''t)
                             (tterm (typed-term (caddr (disjoin cl))
                                                ''t
-                                               (cadr (disjoin cl)))))
+                                               (cadr (cadr (disjoin cl)))
+                                               (caddr (cadr (disjoin cl))))))
                  (:instance unify-type-maintains-term
                             (options (construct-type-options hints (disjoin cl)))
                             (expected ''t)
                             (tterm (typed-term (caddr (disjoin cl))
                                                ''t
-                                               (cadr (disjoin cl))))))))
+                                               (cadr (cadr (disjoin cl)))
+                                               (caddr (cadr (disjoin cl)))))))))
   :rule-classes :clause-processor)
