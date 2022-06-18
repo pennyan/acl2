@@ -45,37 +45,36 @@
       ((term pseudo-termp :default ''nil)
        (path-cond conj-p :default ''t)
        (args ttmrg-list-p :default nil)
-       (judgements conj-p :default ''t)))
+       (top-judgement conj-p :default ''t)))
 
     (deflist ttmrg-list
       :elt-type ttmrg-p
       :true-listp t
       :measure (list (acl2-count x) 0)))
 
-
-  (acl2::defrule term->args-smaller-than-term
+  (acl2::defrule ttmrg->args-smaller-than-tterm
     (implies (ttmrg-p tterm)
 	     (< (acl2-count (ttmrg->args tterm))
 		(acl2-count tterm)))
+    :rule-classes (:rewrite :linear)
     :expand ((ttmrg->args tterm)
 	     (ttmrg-p tterm)))
 
-  (define ttmrg->top-judgement ((tterm ttmrg-p))
-    :returns (j pseudo-termp)
-    (b* (((ttmrg tterm) (ttmrg-fix tterm))
-	 (term tterm.term)
-	 ((unless (and (consp term) (not (equal (car term) 'quote))))
-	  tterm.judgements)
-	 ((unless (conj-consp tterm.judgements)) ''t))
-       (conj-car tterm.judgements)))
+  (define ttmrg->args-judgements-help ((ttargs ttmrg-list-p))
+    :returns (judgements conj-conj-p)
+    (if (consp ttargs)
+      (conj-cons (ttmrg->top-judgement (car ttargs))
+		 (ttmrg->args-judgements-help (cdr ttargs)))
+      ''t))
 
-  (define ttmrg->args-judgement ((tterm ttmrg-p))
-    :returns (j conj-p)
-    (b* (((ttmrg tterm) (ttmrg-fix tterm))
-	 (term tterm.term)
-	 ((unless (and (consp term) (not (equal (car term) 'quote)))) ''t)
-	 ((unless (conj-consp tterm.judgements)) ''t))
-       (conj-cdr tterm.judgements)))
+  (define ttmrg->args-judgements ((tterm ttmrg-p))
+    :returns (j conj-conj-p)
+    (ttmrg->args-judgements-help (ttmrg->args tterm)))
+
+  (define ttmrg->judgements ((tterm ttmrg-p))
+    :returns (j conj-conj-p)
+    (conj-cons (ttmrg->top-judgement tterm)
+	       (ttmrg->args-judgements tterm)))
 
   (define ttmrg-list->terms ((args ttmrg-list-p))
     :returns (terms pseudo-term-listp)
@@ -84,6 +83,9 @@
        (cons (ttmrg->term hd)
 	     (ttmrg-list->terms tl))))
 
+  ; ttmrg-list->judgements only used in triv.lisp.
+  ; after refactoring to make judgements a derived field,
+  ; check to see if we can delete ttmrg-list->judgements
   (define ttmrg-list->judgements ((args ttmrg-list-p))
     :returns (judgements conj-conj-p)
     (b* (((unless (consp args)) ''t)
@@ -128,11 +130,6 @@
 	    @('(and (consp (cdddr term)) (not (cddddr term)))') where
 	    @('term) is @('(ttrmg->ter tterm)').
 	  </li>
-	  <li>If @('(car (ttmrg->term tterm))') is a symbol other than
-	    <tt>'if</tt>, <tt>'t</tt> or <tt>'nil</tt> then the each element
-	    of the @('args') field must have the same @('path-cond') as this
-	    @('ttmrg').
-	  </li>
 	  <li>A @(see ttmrg) that satisfies @('ttmrg-syntax-p')
 	    cannot be a lambda expression.  All lambdas in the goal should have
 	    been flattened in the expand-clause-processor. This simplifies the
@@ -152,116 +149,45 @@
 		(consp (cdr term))
 		(not (cddr term))))
 	 (args tterm.args)
-	 ((unless (conj-consp tterm.judgements)) nil)
-	 ((unless (conj-conj-p tterm.judgements)) nil)
 	 ((unless
 	   (if (equal fn 'if)
 	       (and (consp (cddr args))
 		    (not (cdddr args)))
 	       (and (symbolp fn)
 		    (not (booleanp fn)))))
-	  nil))
-       (ttmrg-args-syntax-p
-	 tterm.args
-	 (cdr term)
-	 (conj-cdr tterm.judgements))))
+	  nil)
+	 ((unless (match-len tterm.args (cdr term))) nil))
+       (ttmrg-args-syntax-p tterm.args)))
 
-  (define ttmrg-args-syntax-p ((ttargs ttmrg-list-p)
-			       (args pseudo-term-listp)
-			       (jargs conj-conj-p))
+  (define ttmrg-args-syntax-p ((ttargs acl2::any-p))
     :returns (ok booleanp)
     :measure (list (acl2-count ttargs) 0)
     :flag args
-    (if (consp args)
-      (and (consp ttargs)
-	   (conj-consp jargs)
-	   (ttmrg-syntax-p (car ttargs))
-	   (ttmrg-args-syntax-p
-	     (cdr ttargs)
-	     (cdr args)
-	     (conj-cdr jargs)))
-      (and (not ttargs)
-	   (not args)
-	   (equal jargs ''t))))
+    (if (consp ttargs)
+      (and (ttmrg-syntax-p (car ttargs))
+	   (ttmrg-args-syntax-p (cdr ttargs)))
+      (not ttargs)))
   ///
-
   (more-returns ttmrg-syntax-p
     (ok :name ttmrg-p-when-ttmrg-syntax-p
 	(implies ok (ttmrg-p tterm))
 	:rule-classes (:rewrite :forward-chaining))
-    (ok :name conj-conj-p-of-ttmrg-p->judgements
-	(implies (and ok
-		      (consp (ttmrg->term tterm))
-		      (not (equal (car (ttmrg->term tterm)) 'quote)))
-		 (conj-conj-p (ttmrg->judgements tterm))))
-    (ok :name conj-p-of-ttmrg->top-judgement-when-ttmrg-syntax-p
-      (implies ok (conj-p (ttmrg->top-judgement tterm)))
-      :hints(("Goal" :in-theory (enable ttmrg->top-judgement))))
-    (ok :name conj-conj-p-of-ttmrg->args-judgement-when-ttmrg-syntax-p
-      (implies ok (conj-conj-p (ttmrg->args-judgement tterm)))
-      :hints(("Goal"
-	:in-theory (enable ttmrg->args-judgement)
-	:expand ((ttmrg-syntax-p tterm))))))
+    (ok :name ttmrg-syntax-p-of-if
+	(implies (and ok (equal (car (ttmrg->term tterm)) 'if))
+		 (and (consp (ttmrg->args tterm))
+		      (consp (cdr (ttmrg->args tterm)))
+		      (consp (cddr (ttmrg->args tterm)))
+		      (not (cdddr (ttmrg->args tterm)))))))
 
-  (defrule conj-car/cdr-of-ttmrg->top-args-judgement-when-ttmrg-syntax-p
-    (implies (and (ttmrg-syntax-p tterm)
-		  (consp (ttmrg->term tterm))
-		  (not (equal (car (ttmrg->term tterm)) 'quote)))
-	     (equal (conj-cons (ttmrg->top-judgement tterm)
-			       (ttmrg->args-judgement tterm))
-		    (ttmrg->judgements tterm)))
-    :in-theory (disable conj-cons-car-cdr foo-lemma)
-    :use((:instance conj-cons-car-cdr (x (ttmrg->judgements tterm)))
-	 (:instance foo-lemma (args (cdr (ttmrg->term tterm)))
-			      (ttargs (ttmrg->args tterm))
-			      (jargs (conj-cdr (ttmrg->judgements tterm)))))
-    :expand ((ttmrg-syntax-p tterm)
-	     (ttmrg->top-judgement tterm)
-	     (ttmrg->args-judgement tterm)
-	     (foo-p (cdr (ttmrg->term tterm))
-				  (ttmrg->args tterm)
-				  (conj-cdr (ttmrg->judgements tterm))))
-    :prep-lemmas(
-      ; foo-p gives us the induction schema we need to prove foo-lemma:
-      ;   ttmrg-args-syntax-p establishes that the conj structure of
-      ;   tterm.judgements matches the cons structure of args and ttargs.
-      (define foo-p ((args pseudo-term-listp) (ttargs ttmrg-list-p) (jargs conj-p))
-	:returns (ok booleanp)
-	(if (and (consp args) (consp ttargs) (conj-consp jargs))
-	  (foo-p (cdr args) (cdr ttargs) (conj-cdr jargs))
-	  (and (equal args nil) (equal ttargs nil)(equal jargs ''t)))
-	///
-	(more-returns
-	  (ok :name foo-lemma
-	    (implies (ttmrg-args-syntax-p ttargs args jargs) ok))))))
-
-  (define ttmrg-list-syntax-p ((ttlst acl2::any-p))
-    :returns (ok booleanp)
-    (if (consp ttlst)
-      (and (ttmrg-syntax-p (car ttlst))
-	   (ttmrg-list-syntax-p (cdr ttlst)))
-      (not ttlst))
-    ///
-    (more-returns
-      (ok :name ttmrg-list-p-when-ttmrg-list-syntax-p
-	  (implies ok (ttmrg-list-p ttlst))
-	  :hints(("Goal" :in-theory (enable ttmrg-list-p)))
-	  :rule-classes (:rewrite :forward-chaining))
-      (ok :name ttmrg-list-syntax-p-of-cdr
-	  (implies ok (ttmrg-list-syntax-p (cdr ttlst)))
-	  :hints(("Goal" :in-theory (enable ttmrg-list-syntax-p))))))
-
-  (defthm-ttmrg-syntax-flag
-    (defthm ttmrg-syntax-p-implies-ttmrg-list-p
-      (implies (ttmrg-syntax-p tterm) (ttmrg-list-syntax-p (ttmrg->args tterm)))
-      :flag term)
-    (defthm ttmrg-args-syntax-p-implies-ttmrg-list-p
-      (implies (ttmrg-args-syntax-p ttargs args jargs)
-	       (ttmrg-list-syntax-p ttargs))
-      :flag args
-      :skip t)
-      :hints(("Goal" :in-theory (enable ttmrg-syntax-p ttmrg-args-syntax-p ttmrg-list-syntax-p)))))
-
+  (more-returns ttmrg-args-syntax-p
+    (ok :name ttmrg-list-p-when-ttmrg-args-syntax-p
+	(implies ok (ttmrg-list-p ttargs))
+	:hints(("Goal"
+          :in-theory (enable ttmrg-args-syntax-p ttmrg-list-p)
+	  :induct (len ttargs)))
+	:rule-classes (:rewrite :forward-chaining))
+    (ok :name ttmrg-args-syntax-p-of-cdr
+	(implies ok (ttmrg-args-syntax-p (cdr ttargs))))))
 
 (defsection ttmrg-correct
   (define ttmrg-args-correct-values ((ttargs ttmrg-list-p)
@@ -275,26 +201,18 @@
 	   (ttmrg-args-correct-values (cdr ttargs) (cdr args) env))
       (not (or ttargs args))))
 
-  (define ttmrg-args-correct-path ((ttargs ttmrg-list-p)
-				   (path-cond conj-p)
-				   (env alistp))
+  ; (ttmrg-args-correct-path args env): test that the path-cond for each
+  ;  element of args hold in env.
+  ;  Use: args is the argument list for some function call (other than
+  ;  'quote or 'if).  Our caller should check that the path-cond of this
+  ;  function-call holds.  Then, (ttmrg-args-correct-path args env)
+  ;  establishes that the path-cond for the function-call implies the
+  ;  path-cond for each element of args.
+  (define ttmrg-args-correct-path ((ttargs ttmrg-list-p) (env alistp))
     :returns (ok booleanp)
-    (if (consp ttargs)
-      (and (implies (ev-smtcp path-cond env)
-		    (ev-smtcp (ttmrg->path-cond (car ttargs)) env))
-	   (ttmrg-args-correct-path (cdr ttargs) path-cond env))
-      t))
-
-  (define ttmrg-args-correct-judge ((ttargs ttmrg-list-p)
-				    (jargs conj-conj-p)
-				    (env alistp))
-    :returns (ok booleanp)
-    (if (and (consp ttargs) (conj-consp jargs))
-      (and (implies (and (ev-smtcp (ttmrg->path-cond (car ttargs)) env)
-			 (ev-smtcp (ttmrg->judgements (car ttargs)) env))
-		    (ev-smtcp (conj-car jargs) env))
-	   (ttmrg-args-correct-judge (cdr ttargs) (conj-cdr jargs) env))
-      (and (equal jargs ''t) (not ttargs))))
+    (or (atom ttargs)
+      (and (ev-smtcp (ttmrg->path-cond (car ttargs)) env)
+	   (ttmrg-args-correct-path (cdr ttargs) env))))
 
   (acl2::define-sk ttmrg-correct-sk ((tterm acl2::any-p))
     :guard-hints(("Goal" :in-theory (enable ttmrg-syntax-p)))
@@ -305,7 +223,7 @@
 	   ((ttmrg tterm) tterm)
 	   ; All typed-terms must satisfy path-cond implies judgements
 	   ((unless (ev-smtcp tterm.path-cond env)) t)
-	   ((unless (ev-smtcp tterm.judgements env)) nil)
+	   ((unless (ev-smtcp tterm.top-judgement env)) nil)
 	   ((if (or (atom tterm.term) (equal (car tterm.term) 'quote))) t))
 	(and ; tterm is a function call 
 	  (ttmrg-args-correct-values tterm.args (cdr tterm.term) env)
@@ -316,12 +234,13 @@
 		   (if (ev-smtcp condx.term env)
 		     (ev-smtcp thenx.path-cond env)
 		     (ev-smtcp elsex.path-cond env))))
-	    (ttmrg-args-correct-path tterm.args tterm.path-cond env))
-	  (ttmrg-args-correct-judge tterm.args (conj-cdr tterm.judgements) env)))))
-
+	    (ttmrg-args-correct-path tterm.args env))))))
+  
   (defrule syntax-p-when-ttmrg-correct-sk
     (implies (ttmrg-correct-sk tterm)
-	     (ttmrg-syntax-p tterm)))
+	     (ttmrg-syntax-p tterm))
+    :rule-classes (:rewrite :forward-chaining)
+    :in-theory (enable ttmrg-correct-sk))
 
   (defines ttmrg-correct
     :well-founded-relation l<
@@ -341,7 +260,7 @@
       :measure (list (acl2-count ttargs) 0)
       :returns (ok booleanp)
       :flag args
-      (b* (((if (endp ttargs)) t)
+      (b* (((unless (consp ttargs)) (null ttargs))
 	   ((cons hd tl) ttargs))
 	  (and (ttmrg-correct-p hd)
 	       (ttmrg-args-correct-p tl))))
@@ -353,14 +272,143 @@
 	  :hints(("Goal" :expand ((ttmrg-correct-p tterm)))))
       (ok :name ttmrg-p-when-ttmrg-correct-p
         (implies ok (ttmrg-p tterm))
-	:rule-classes (:rewrite :forward-chaining)))))
+	:rule-classes (:rewrite :forward-chaining))
+      (ok :name ttmrg-args-correct-p-when-ttmrg-correct-p
+	(implies ok (ttmrg-args-correct-p (ttmrg->args tterm)))
+	:rule-classes ((:rewrite) (:forward-chaining) (:type-prescription))
+	:hints(("Goal"
+	  :use((:instance ttmrg-syntax-p))
+	  :expand (ttmrg-correct-p tterm)))))
+    (more-returns ttmrg-args-correct-p
+      (ok :name ttmrg-args-syntax-p-when-ttmrg-args-correct-p
+	(implies ok (ttmrg-args-syntax-p ttargs))
+	:rule-classes (:rewrite :forward-chaining)
+	:hints(("Goal"
+	  :induct (len ttargs)
+	  :in-theory (enable ttmrg-args-syntax-p))))
+      (ok :name ttmrg-list-p-when-ttmrg-args-correct-p
+	(implies ok (ttmrg-list-p ttargs))
+	:rule-classes (:rewrite :forward-chaining)
+	:hints(("Goal"
+	  :induct (len ttargs)
+	  :in-theory (enable ttmrg-list-p))))
+      (ok :name ttmrg-args-correct-p-of-cdr
+	(implies ok (ttmrg-args-correct-p (cdr ttargs))))
+      (ok :name member-when-ttmrg-args-correct-p
+	(implies (and ok (member-equal ttarg ttargs))
+		 (ttmrg-correct-p ttarg))
+	:hints(("Goal" :in-theory (enable member-equal)))))
+
+    (deflabel start-ttmrg-correct-sk-thms)
+    (defrule ttmrg-correct-sk-when-ttmrg-correct-p
+      (implies (ttmrg-correct-p tterm)
+	       (ttmrg-correct-sk tterm))
+      :expand (ttmrg-correct-p tterm))
+
+    (defrule ttmrg->top-judgement-when-ttmrg-correct-sk
+      (implies (and (ttmrg-correct-sk tterm)
+		    (alistp env)
+		    (ev-smtcp (ttmrg->path-cond tterm) env))
+	       (ev-smtcp (ttmrg->top-judgement tterm) env))
+      :use ((:instance ttmrg-correct-sk-necc))
+      :rule-classes ((:rewrite :match-free :all)))
+
+    (defrule ttmrg-args-correct-values-when-ttmrg-correct-sk
+      (implies (and (ttmrg-correct-sk tterm)
+		    (alistp env)
+		    (ev-smtcp (ttmrg->path-cond tterm) env)
+		    (consp (ttmrg->term tterm))
+		    (not (equal (car (ttmrg->term tterm)) 'quote)))
+	       (ttmrg-args-correct-values (ttmrg->args tterm)
+					  (cdr (ttmrg->term tterm)) env))
+      :use((:instance ttmrg-correct-sk-necc)))
+
+    (defrule ttmrg->path-cond-of-ifargs-when-ttmrg-correct-sk
+      (implies (and (ttmrg-correct-sk tterm)
+		    (alistp env)
+		    (ev-smtcp (ttmrg->path-cond tterm) env)
+		    (consp (ttmrg->term tterm))
+		    (equal (car (ttmrg->term tterm)) 'if))
+	       (and (ev-smtcp (ttmrg->path-cond (car (ttmrg->args tterm))) env)
+		    (if (ev-smtcp (ttmrg->term (car (ttmrg->args tterm))) env)
+		      (ev-smtcp (ttmrg->path-cond (cadr (ttmrg->args tterm))) env)
+		      (ev-smtcp (ttmrg->path-cond (caddr (ttmrg->args tterm))) env))))
+      :use((:instance ttmrg-correct-sk-necc)))
+
+    (defrule ttmrg-args-correct-path-when-ttmrg-correct-sk
+      (implies (and (ttmrg-correct-sk tterm)
+		    (alistp env)
+		    (ev-smtcp (ttmrg->path-cond tterm) env)
+		    (consp (ttmrg->term tterm))
+		    (not (equal (car (ttmrg->term tterm)) 'quote))
+		    (not (equal (car (ttmrg->term tterm)) 'if)))
+	       (ttmrg-args-correct-path (ttmrg->args tterm) env))
+      :use((:instance ttmrg-correct-sk-necc)))
+    (deftheory ttmrg-correct-sk-thms
+      (set-difference-theories
+	(current-theory :here)
+	(current-theory 'start-ttmrg-correct-sk-thms)))
+    (in-theory (disable ttmrg-correct-sk-thms
+			member-when-ttmrg-args-correct-p))))
+
+
+; Type inference can update various fields of the ttmrg values while
+; preserving the function call structure.  ttmrg-simple-count is a measure
+; function that is based on the function call structure of a ttmrg and
+; ignores the other fields.
+(defines ttmrg-simple-count
+  :flag-local nil
+  (define ttmrg-simple-count ((tterm ttmrg-p))
+    :returns (m natp)
+    :flag term
+    :measure (ttmrg-count tterm)
+    (1+ (ttmrg-args-simple-count (ttmrg->args tterm))))
+
+  (define ttmrg-args-simple-count ((ttargs ttmrg-list-p))
+    :returns (m natp)
+    :flag args
+    :measure (ttmrg-list-count ttargs)
+    (if (consp ttargs)
+      (+ 1 (ttmrg-simple-count (car ttargs))
+	 (ttmrg-args-simple-count (cdr ttargs)))
+      0))
+  ///
+  (more-returns ttmrg-simple-count
+    (m :name ttmrg-args-simple-count-of-ttmrg->args-<-ttmrg-simple-count-of-term
+      (< (ttmrg-args-simple-count (ttmrg->args tterm)) m)))
+
+  (more-returns ttmrg-args-simple-count
+    (m :name ttmrg-simple-count-of-car-<-ttmrg-args-simple-count
+      (implies (consp ttargs)
+	       (< (ttmrg-simple-count (car ttargs)) m))
+      :hints(("Goal"
+	:expand ((ttmrg-args-simple-count ttargs)))))
+    (m :name ttmrg-simple-count-of-cdr-<-ttmrg-args-simple-count
+      (implies (consp ttargs)
+	       (< (ttmrg-args-simple-count (cdr ttargs)) m))
+      :hints(("Goal"
+	:expand ((ttmrg-args-simple-count ttargs))))))
+
+  (defthm-ttmrg-simple-count-flag
+    (defthm ttmrg-simple-count-of-ttmrg-fix
+      (equal (ttmrg-simple-count (ttmrg-fix tterm))
+	     (ttmrg-simple-count tterm))
+      :flag term)
+    (defthm ttmrg-args-simple-count-of-ttmrg-list-fix
+      (equal (ttmrg-args-simple-count (ttmrg-list-fix ttargs))
+	     (ttmrg-args-simple-count ttargs))
+      :flag args)
+    :hints(("Goal"
+      :in-theory (enable ttmrg-fix ttmrg-list-fix
+			 ttmrg-simple-count ttmrg-args-simple-count)))))
+
 
 ; pseudo-term-syntax-p recognizes pseudo-terms that satisfy the constraints
 ;   we have for ttmrg-syntax-p: no lambada; 't, 'nil, cannot be used as
 ;   function names; the 'quote function must have exactly one argument;
 ;   and the 'if function must have exactly three arguments.
 (defines pseudo-term-syntax
-  :flag-local nil ; pseudo-term-syntax-p and pesudo-term-list-syntax-p
+  :flag-local nil ; pseudo-term-syntax-p and pseudo-term-list-syntax-p
                   ; provide a more efficient induction schema than
 		  ; pseudo-termp and pseudo-term-listp
   (define pseudo-term-syntax-p ((term acl2::any-p))
@@ -397,3 +445,67 @@
       :rule-classes (:rewrite :forward-chaining)
       :flag args)
     :hints(("Goal" :in-theory (enable pseudo-termp pseudo-term-listp)))))
+
+(defines pseudo-term-syntax-fix
+  :verify-guards nil
+  :returns-hints(("Goal" :in-theory (enable pseudo-term-syntax-p pseudo-term-list-syntax-p)))
+  (define pseudo-term-syntax-fix ((term pseudo-term-syntax-p))
+    :returns (term-fix pseudo-term-syntax-p)
+    :flag term
+    (mbe :exec term
+	 :logic (b* (((unless (consp term))
+		      (and (symbolp term) term))
+		     ((cons fn args) term)
+		     ((if (equal fn 'quote))
+		      (and (consp args) (null (cdr args)) term))
+		     (fn-fix
+		      (cond ((and (consp fn) (equal (car fn) 'lambda))
+				'unexpected-lambda-expression)
+			    ((not (symbolp fn)) 'garbled-term)
+			    ((booleanp fn)
+			     (if fn 'invalid-use-of-t-as-function
+				    'invalid-use-of-nil-as-function))
+			    ((and (equal fn 'if)
+				  (or (not (consp (cddr args)))
+				      (cdddr args)))
+			     'bad-if)
+			    (t fn)))
+		     (args-fix (pseudo-term-list-syntax-fix args)))
+		  (cons fn-fix args-fix))))
+
+  (define pseudo-term-list-syntax-fix ((args pseudo-term-list-syntax-p))
+    :returns (args-fix pseudo-term-list-syntax-p)
+    :flag args
+    (mbe :exec args
+	 :logic
+	   (if (consp args)
+	     (cons (pseudo-term-syntax-fix (car args))
+		   (pseudo-term-list-syntax-fix (cdr args)))
+	     nil)))
+  ///
+
+  (defthm-pseudo-term-syntax-fix-flag
+    (defthm pseudo-term-syntax-fix-when-pseudo-term-syntax-p
+      (implies (pseudo-term-syntax-p term)
+	       (equal (pseudo-term-syntax-fix term) term))
+      :flag term)
+    (defthm pseudo-term-list-syntax-fix-when-pseudo-term-list-syntax-p
+      (implies (pseudo-term-list-syntax-p args)
+	       (equal (pseudo-term-list-syntax-fix args) args))
+      :flag args)
+    :hints(("Goal" :in-theory (enable pseudo-term-syntax-p
+				      pseudo-term-list-syntax-p))))
+
+  (verify-guards pseudo-term-syntax-fix
+    :hints(("Goal" :in-theory (enable pseudo-term-syntax-p
+				      pseudo-term-list-syntax-p))))
+
+  (defthm-pseudo-term-syntax-fix-flag
+    (defthm acl2-count-of-pseudo-term-syntax-fix
+      (<= (acl2-count (pseudo-term-syntax-fix term))
+	  (acl2-count term))
+      :flag term)
+    (defthm acl2-count-of-pseudo-term-list-syntax-fix
+      (<= (acl2-count (pseudo-term-list-syntax-fix args))
+	  (acl2-count args))
+      :flag args)))

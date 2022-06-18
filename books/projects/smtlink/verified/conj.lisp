@@ -106,7 +106,11 @@ of @('x').
   (more-returns
     (hd :name count-of-conj-car
 	(implies (conj-consp x)
-		 (< (acl2-count hd) (acl2-count x))))))
+		 (< (acl2-count hd) (acl2-count x))))
+    (hd :name conj-car-when-not-conj-consp
+	(implies (not (conj-consp x))
+		 (equal hd ''t))
+	:rule-classes (:rewrite :forward-chaining))))
 
 (define conj-cdr ((x conj-p))
   :short "extract the second conjunct of a @(see conj-p) object -- this second conjunct must be a @(see conj-p) object itself"
@@ -116,7 +120,11 @@ of @('x').
   (more-returns
     (tl :name count-of-conj-cdr
 	(implies (conj-consp x)
-		 (< (acl2-count tl) (acl2-count x))))))
+		 (< (acl2-count tl) (acl2-count x))))
+    (tl :name conj-cdr-when-not-conj-consp
+	(implies (not (conj-consp x))
+		 (equal tl ''t))
+	:rule-classes (:rewrite :forward-chaining))))
 
 (define conj-len ((x conj-p)) 
   :short "The analog of @(see len) for @(see conj-p) objects"
@@ -156,12 +164,12 @@ of @('x').
 		      (ev-smtcp (conj-fix tl) env) nil))))
 
   (defrule ev-smtcp-of-conj-car
-    (implies (and (conj-p x)(alistp env) (ev-smtcp x env))
+    (implies (and (conj-p x) (alistp env) (ev-smtcp x env))
 	     (ev-smtcp (conj-car x) env))
     :in-theory (enable conj-car conj-consp conj-p))
 
   (defrule ev-smtcp-of-conj-cdr
-    (implies (and (conj-p x)(alistp env) (ev-smtcp x env))
+    (implies (and (conj-p x) (alistp env) (ev-smtcp x env))
 	     (ev-smtcp (conj-cdr x) env))
     :in-theory (enable conj-cdr conj-consp conj-p))
 
@@ -174,28 +182,21 @@ of @('x').
 
 (local (in-theory (disable conj-p conj-consp)))
 
-;(define conj-member ((x pseudo-termp) (conj conj-p))
-;  :returns (y conj-p)
-;  (b* (((unless (conj-consp conj)) ''t)
-;       ((conj-cons hd tl) conj)
-;       ((if (equal x hd)) conj))
-;    (conj-member x tl)))
-;
-;
-;(define conj-merge ((c1 conj-p) (c2 conj-p))
-;  :returns (c conj-p)
-;  (b* ((c1 (conj-fix c1))
-;       (c2 (conj-fix c2))
-;       ((if (equal c1 ''t)) c2)
-;       ((if (equal c2 ''t)) c1))
-;    (conj-cons c1 c2))
-;  ///
-;  (more-returns
-;    (c :name ev-smtcp-of-conj-merge
-;       (implies (and (conj-p c1) (conj-p c2) (alistp env))
-;		(iff (ev-smtcp c env)
-;		     (and (ev-smtcp c1 env)
-;			  (ev-smtcp c2 env)))))))
+(define conj-cons2 ((hd pseudo-termp) (tl conj-p))
+  :returns (c conj-p :hints(("Goal" :in-theory (enable conj-fix))))
+  (cond ((equal hd ''t) (conj-fix tl))
+	((and (equal tl ''t) (conj-p hd)) hd)
+	((equal hd ''nil) (conj-cons ''nil ''t))
+	((equal (conj-fix tl) (conj-cons ''nil ''t)) tl)
+	(t (conj-cons hd tl)))
+  ///
+  (more-returns
+    (c :name ev-smtcp-of-conj-cons2
+      (implies (and (alistp env) (conj-p tl))
+	       (equal (ev-smtcp c env)
+		      (if (ev-smtcp (pseudo-term-fix hd) env)
+			(ev-smtcp tl env) nil))))))
+
 (define conj-conj-p ((x acl2::any-p))
   :returns (ok booleanp)
   (and (conj-p x)
@@ -236,7 +237,13 @@ of @('x').
     (defrule conj-conj-fix-when-conj-conj-p
       (implies (conj-conj-p x)
 	       (equal (conj-conj-fix x) x)))
-    (verify-guards conj-conj-fix)))
+    (verify-guards conj-conj-fix))
+
+  (defrule conj-conj-p-when-not-conj-consp
+      (implies (and (conj-p x) (not (conj-consp x)))
+	       (equal x ''t))
+      :in-theory (enable conj-consp conj-p)
+      :rule-classes (:forward-chaining)))
 
 (define pseudo-conj-p ((x pseudo-termp))
   :returns (ok booleanp)
@@ -254,7 +261,8 @@ of @('x').
 	(implies ok (pseudo-termp (caddr x))))
     (ok :name pseudo-conj-p-when-conj-p
 	(implies (conj-p x) ok)
-	:hints(("Goal" :expand ((conj-p x)))))))
+	:hints(("Goal" :expand ((conj-p x)))))
+    ))
 
 
 (define term-to-conj ((x pseudo-termp))
@@ -293,6 +301,120 @@ of @('x').
   :fix conj-conj-fix
   :equiv conj-conj-equiv
   :define t)
+
+; Sometimes, we have two conj values, and want to find what conjuncts they
+; have in common.  In particular, this occurs when computing the type
+; judgements for if-expressions: the judgements that apply to both the
+; then- and else-clauses apply to the whole if-expression.
+; There are many, obvious improvements that might be justified once we see
+; Smtlink in use:
+;   1.  I've implemented the brute-force O(N^2) implementation.  An O(N)
+;         implementation using fast-alists is probably preferable, but
+;         then we need to norm all the terms and figure out how they
+;         eventually get freed.
+;   2.  I don't do any "normalization" of the terms.  Thus if x is '(+ a b)
+;         and '(+ b a) is a conjunct of conj, we'll report that x is not a
+;         conjunct of conj.
+(define conj-in ((x pseudo-termp) (conj pseudo-termp))
+  :returns (ok booleanp)
+  :hints(("Goal" :in-theory (enable pseudo-conj-p)))
+  :guard-hints(("Goal" :in-theory (enable pseudo-conj-p)))
+  (cond
+    ((equal conj ''t) (equal x ''t))
+    ((pseudo-conj-p conj)
+     (or (conj-in x (cadr conj))
+	 (conj-in x (caddr conj))))
+    (t (equal (pseudo-term-fix x) (pseudo-term-fix conj)))))
+
+(define conj-common-help
+    ((x pseudo-termp) (y pseudo-termp) (acc conj-p))
+  :returns (c conj-p)
+  :hints(("Goal" :in-theory (enable pseudo-conj-p)))
+  :verify-guards nil
+  (cond ((equal x ''t) (conj-fix acc))
+	((pseudo-conj-p x)
+	 (conj-common-help (cadr x) y
+           (conj-common-help (caddr x) y acc)))
+	((conj-in x y) (conj-cons2 x acc))
+	(t (conj-fix acc)))
+  ///
+  (verify-guards conj-common-help
+    :hints(("Goal" :in-theory (enable pseudo-conj-p)))))
+
+(define conj-common ((x pseudo-termp) (y pseudo-termp))
+  :returns (c conj-p)
+  (conj-common-help x y ''t)
+  ///
+  (local (defrule ev-smtcp-when-pseudo-conj-p
+      (implies (and (pseudo-conj-p x) (alistp env) (not (equal x ''t)))
+	       (equal (ev-smtcp x env)
+		      (and (ev-smtcp (cadr x) env)
+			   (ev-smtcp (caddr x) env))))
+      :hints(("Goal" :expand (pseudo-conj-p x)))))
+  (local (defrule ev-smtcp-of-x-when-conj-in
+    (implies (and (conj-in x y)
+		  (alistp env)
+		  (ev-smtcp (pseudo-term-fix y) env))
+	     (ev-smtcp (pseudo-term-fix x) env))
+    :hints(("Goal" :in-theory (enable conj-in pseudo-conj-p)))))
+
+  (defrule conj-common-when-x
+    (implies (and (alistp env)
+		  (ev-smtcp (pseudo-term-fix x) env))
+	     (ev-smtcp (conj-common x y) env))
+    :expand (conj-common x y)
+    :prep-lemmas (
+      (defrule conj-common-help-when-x
+	(implies (and (alistp env)
+		      (conj-p acc)
+		      (ev-smtcp (pseudo-term-fix x) env)
+		      (ev-smtcp acc env))
+		 (ev-smtcp (conj-common-help x y acc) env))
+	:in-theory (enable conj-common-help))))
+
+  (defrule conj-common-when-y
+    (implies (and (alistp env)
+		  (ev-smtcp (pseudo-term-fix y) env))
+	     (ev-smtcp (conj-common x y) env))
+    :expand (conj-common x y)
+    :prep-lemmas (
+      (defrule conj-common-help-when-y
+	(implies (and (alistp env)
+		      (conj-p acc)
+		      (ev-smtcp (pseudo-term-fix y) env)
+		      (ev-smtcp acc env))
+		 (ev-smtcp (conj-common-help x y acc) env))
+	:in-theory (enable conj-common-help)))))
+
+
+
+; sometimes we want to test (equal (len l1) (len l2)), but using len
+; leads to arithmetic based proof, when we really want to reason about
+; the recursive formula(s) that produced l1 an l2.  match-len-p checks
+; for matching length in the "obvious" recursive way.
+; BOZO: should move match-len to some book in ../utils
+(define match-len ((l1 acl2::any-p) (l2 acl2::any-p))
+  :returns (ok booleanp)
+  (if (and (consp l1) (consp l2))
+    (match-len (cdr l1) (cdr l2))
+    (not (or (consp l1) (consp l2))))
+  ///
+  (defrule reflexivity-of-match-len
+    (match-len l1 l1))
+  (defrule commutativity-of-match-len
+      (equal (match-len l2 l1) (match-len l1 l2)))
+  (defrule transitivity-of-match-len
+      (implies (and (match-len l1 l2) (match-len l2 l3))
+	       (match-len l1 l3)))
+  (defequiv match-len)
+  (defcong match-len equal (consp x) 1))
+
+(define conj-match-len ((conj conj-p) (lst true-listp))
+  :returns (ok booleanp)
+  :measure (len lst)
+  (if (and (consp lst) (conj-consp conj))
+    (conj-match-len (conj-cdr conj) (cdr lst))
+    (and (not (consp lst)) (not (conj-consp conj)))))
 
 
 (define conj-list-fn ((args pseudo-term-listp))

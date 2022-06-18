@@ -12,6 +12,7 @@
 (include-book "judgement-fns")
 (include-book "returns-judgement")
 (include-book "type-options")
+(include-book "../utils/fresh-vars")
 (include-book "make-test")
 
 (set-state-ok t)
@@ -22,92 +23,235 @@
   boolean-listp member-equal consp-of-pseudo-lambdap
   pseudo-lambdap-of-fn-call-of-pseudo-termp lambda-of-pseudo-lambdap
   pseudo-termp-when-pseudo-term-syntax-p ev-smtcp-of-type-hyp-call
-  (:type-prescription pseudo-lambdap))))
+  (:type-prescription pseudo-lambdap) member-equal)))
+
+(deflist conj-list
+  :elt-type conj
+  :true-listp t)
 
 
-(define update-path-cond-args-new-pcs
-    ((ttargs ttmrg-list-syntax-p) (pc conj-p))
-  :returns (new-pcs conj-conj-p)
-  (b* ((pc (conj-fix pc))
-       ((unless (consp ttargs)) ''t))
-    (conj-cons pc (update-path-cond-args-new-pcs (cdr ttargs) pc)))
+(define update-path-cond-args-help
+    ((ttargs ttmrg-list-p) (new-path-cond conj-p))
+  :returns (new-args ttmrg-list-p)
+  (if (consp ttargs)
+    (cons (strengthen-ttmrg->path-cond (car ttargs) new-path-cond)
+	  (update-path-cond-args-help (cdr ttargs) new-path-cond))
+    nil)
   ///
   (more-returns
-    (new-pcs :name match-len-of-update-path-cond-args-new-pcs
-      (list-conj-match-len ttargs new-pcs)
-      :hints(("Goal" :in-theory (enable list-conj-match-len))))
-    (new-pcs :name correctness-of-update-path-cond-args-new-pcs
-      (implies (and (alistp env) (ev-smtcp (conj-fix pc) env))
-	       (ev-smtcp new-pcs env)))))
+    (new-args :name ttmrg-args-simple-count-of-update-path-cond-args-help
+      (equal (ttmrg-args-simple-count new-args)
+	     (ttmrg-args-simple-count ttargs))
+      :hints(("Goal"
+	:in-theory (enable update-path-cond-args-help
+			   ttmrg-args-simple-count))))))
 
-(define update-path-cond-new-pcs ((tterm ttmrg-syntax-p))
-  :returns (new-pcs conj-conj-p)
-  :guard-hints(("Goal" :in-theory (enable ttmrg-syntax-p)))
-  :enabled t
-  (b* (((unless (and (ttmrg-syntax-p tterm)
-		     (consp (ttmrg->term tterm))
-		     (equal (car (ttmrg->term tterm)) 'if)))
-	(update-path-cond-args-new-pcs (ttmrg->args tterm) (ttmrg->path-cond tterm)))
-       ((ttmrg tterm) tterm)
-       (condx (car tterm.args)))
-    (conj-list tterm.path-cond 
-	       (conj-cons (ttmrg->term condx) tterm.path-cond)
-	       (conj-cons `(not ,(ttmrg->term condx)) tterm.path-cond)))
+(define update-path-cond-term-help ((tterm ttmrg-p))
+  :returns (new-args ttmrg-list-p)
+  (b* (((ttmrg tterm) tterm)
+       ((unless (and (consp tterm.term)
+		     (not (equal (car tterm.term) 'quote))))
+	(ttmrg->args tterm))
+       ((unless (and (equal (car tterm.term) 'if)
+		     (consp (cddr (ttmrg->args tterm)))
+		     (not (cdddr (ttmrg->args tterm)))))
+	(update-path-cond-args-help tterm.args tterm.path-cond)))
+    (list (strengthen-ttmrg->path-cond (car tterm.args) tterm.path-cond)
+	  (strengthen-ttmrg->path-cond (cadr tterm.args)
+	    (conj-cons2 (ttmrg->term (car tterm.args)) tterm.path-cond))
+	  (strengthen-ttmrg->path-cond (caddr tterm.args)
+	    (conj-cons2 `(not ,(ttmrg->term (car tterm.args)))
+			tterm.path-cond))))
   ///
-  ; we restate the theorems exported by the encapsulation that introduces
-  ; constrain-ttmrg->args-path in ttmrg-change.lisp with the corresponding
-  ; claimsfor update-path-cond-new-pcs.  This gets us ready for the
-  ; :functional-instantiation based proofs that follow.
-  (defrule match-len-of-update-path-cond-new-pcs
-    (list-conj-match-len (ttmrg->args tterm)
-			 (update-path-cond-new-pcs tterm))
-    :prep-lemmas (
-      (defrule lemma-if
-	(IMPLIES
-	  (AND (TTMRG-SYNTAX-P TTERM)
-	       (CONSP (TTMRG->TERM TTERM))
-	       (EQUAL (CAR (TTMRG->TERM TTERM)) 'IF))
-	  (LIST-CONJ-MATCH-LEN
-	   (TTMRG->ARGS TTERM)
-	   (conj-list tterm.path-cond 
-		      (conj-cons (ttmrg->term condx) tterm.path-cond)
-		      (conj-cons `(not ,(ttmrg->term condx)) tterm.path-cond))))
-	:in-theory (enable list-conj-match-len)
-	:expand ((ttmrg-syntax-p tterm)))))
-
-  (defrule correctness-of-update-path-cond-new-pcs
-    (implies (and (ev-smtcp-meta-extract-global-facts)
-		  (ttmrg-correct-sk tterm)
-		  (alistp env)
-		  (ev-smtcp (ttmrg->path-cond tterm) env))
-	     (let ((fn (car (ttmrg->term tterm)))
-		   (new-pcs (update-path-cond-new-pcs tterm)))
-	       (if (equal fn 'if)
-		 (and (ev-smtcp (conj-car new-pcs) env)
-		      (if (ev-smtcp (ttmrg->term (car (ttmrg->args tterm))) env)
-			(ev-smtcp (conj-car (conj-cdr new-pcs)) env)
-			(ev-smtcp (conj-car (conj-cdr (conj-cdr new-pcs))) env)))
-		 (ev-smtcp new-pcs env))))))
+  (more-returns
+    (new-args :name ttmrg-args-simple-count-of-update-path-cond-term-help
+      (equal (ttmrg-args-simple-count new-args)
+	     (ttmrg-args-simple-count (ttmrg->args tterm)))
+      :hints(("Goal"
+	:in-theory (enable update-path-cond-term-help
+			   ttmrg-args-simple-count))))))
 
 (defines update-path-cond
-  (define update-path-cond ((tterm ttmrg-syntaxp))
-    :returns (new-tt ttmrg-syntaxp)
+  (define update-path-cond-term ((tterm ttmrg-p))
     :flag term
-    (b* (((ttmrg tterm) (ttmrg-fix tterm))
-	 ((unless (consp tterm.term)) tterm)
-	 ((if (equal (car tterm.term) 'quote)) tterm)
-	 (tterm2 (strengthen-ttmrg-args->path-cond 
-		   term (update-path-cond-new-pcs tterm))))
-       (change-ttmrg :args (update-path-cond-args args))))
+    :returns (new-tt ttmrg-p)
+    :measure (ttmrg-simple-count tterm)
+    :verify-guards nil
+    (let ((tterm2
+	   (change-ttmrg->args
+	     tterm
+	     (update-path-cond-term-help tterm))))
+      (change-ttmrg->args
+	tterm2
+	(update-path-cond-args (ttmrg->args tterm2)))))
 
-  (define update-path-cond-args ((args ttmrg-list-syntax-p))
-    :returns (new-args ttmrg-list-syntax-p)
-    (b* (((unless (consp args)) nil)
-	 ((cons hd tl) args))
-      (cons (update-path-cond hd)
-	    (update-path-cond-args tl)))))
+  (define update-path-cond-args ((ttargs ttmrg-list-p))
+    :flag args
+    :returns (new-args ttmrg-list-p)
+    :measure (ttmrg-args-simple-count ttargs)
+    (if (consp ttargs)
+      (cons (update-path-cond-term (car ttargs))
+	    (update-path-cond-args (cdr ttargs)))
+      nil))
+  ///
+  (verify-guards update-path-cond-term)
 
-	   
+  (defrule ttmrg-args-only-changed->args-of-update-path-cond-args
+    (ttmrg-args-only-changed->args
+      (update-path-cond-args ttargs) ttargs)
+    :in-theory (enable ttmrg-args-only-changed->args)
+    :prep-lemmas (
+      (defrule lemma-*1/3
+	(equal (consp (update-path-cond-args ttargs))
+	       (consp ttargs))
+	:use((:instance update-path-cond-args)))
+      (defrule change-ttmrg->args-ttmrg-args-only-changed->args
+	(and (equal (ttmrg->term (change-ttmrg->args tterm new-ttargs))
+		    (ttmrg->term tterm))
+	     (equal (ttmrg->path-cond (change-ttmrg->args tterm new-ttargs))
+		    (ttmrg->path-cond tterm)))
+	:use((:instance change-ttmrg->args)))
+      (defrule lemma-*1/2
+	(implies (consp ttargs)
+	  (and (equal (ttmrg->term (car (update-path-cond-args ttargs)))
+		      (ttmrg->term (car ttargs)))
+	       (equal (ttmrg->path-cond (car (update-path-cond-args ttargs)))
+		      (ttmrg->path-cond (car ttargs)))))
+	  :use((:instance update-path-cond-args)
+	       (:instance update-path-cond-term (tterm (car ttargs)))))))
+
+  (local (encapsulate nil
+    (defrule ttmrg-args->stronger-path-cond-of-update-path-cond-term-help
+      (implies (alistp env)
+	(ttmrg-args->stronger-path-cond
+	  (ttmrg->args tterm)
+	  (update-path-cond-term-help tterm)
+	  env))
+      :in-theory (enable update-path-cond-term-help
+			 ttmrg-args->stronger-path-cond)
+      :prep-lemmas (
+	(defrule lemma-args
+	  (implies (and (alistp env) (pseudo-termp new-path-cond))
+	    (ttmrg-args->stronger-path-cond
+	      ttargs
+	      (update-path-cond-args-help ttargs new-path-cond)
+	      env))
+	  :in-theory (enable ttmrg-args->stronger-path-cond
+			     update-path-cond-args-help
+			     strengthen-ttmrg->path-cond))))
+
+    (defrule ttmrg-args-correct-path-of-update-path-cond-term-help
+      (implies
+	(and (ttmrg-correct-p tterm)
+	     (alistp env)
+	     (ev-smtcp (ttmrg->path-cond tterm) env)
+	     (consp (ttmrg->term tterm))
+	     (not (equal (car (ttmrg->term tterm)) 'quote)))
+	(let ((new-ttargs (update-path-cond-term-help tterm)))
+	  (if (equal (car (ttmrg->term tterm)) 'if)
+	    (and (ev-smtcp (ttmrg->path-cond (car new-ttargs)) env)
+		 (if (ev-smtcp (ttmrg->term (car new-ttargs)) env)
+		   (ev-smtcp (ttmrg->path-cond (cadr new-ttargs)) env)
+		   (ev-smtcp (ttmrg->path-cond (caddr new-ttargs)) env)))
+	    (ttmrg-args-correct-path new-ttargs env))))
+      :expand ((update-path-cond-term-help tterm)
+	       (ttmrg-correct-p tterm))
+      :use((:instance ttmrg-correct-sk-necc))
+      :prep-lemmas (
+	(defrule lemma-args
+	  (implies (and (alistp env)
+			(conj-p path-cond)
+			(ttmrg-args-correct-path ttargs env)
+			(ev-smtcp path-cond env))
+		   (ttmrg-args-correct-path
+		     (update-path-cond-args-help ttargs path-cond)
+		     env))
+	  :in-theory (enable update-path-cond-args-help
+			     ttmrg-args-correct-path))))
+
+    (defrule ttmrg-correct-p-of-update-path-cond-term-help
+      (implies
+	(and (ttmrg-correct-p tterm)
+	     (ev-smtcp-meta-extract-global-facts))
+	(ttmrg-correct-p
+	  (change-ttmrg->args tterm
+			      (update-path-cond-term-help tterm))))
+      :use((:functional-instance
+	      ttmrg-correct-p-of-change-ttmrg-args--strengthen-path-cond
+	(constrain-ttmrg->args-path-cond
+	  (lambda (tterm state) (update-path-cond-term-help tterm))))))
+
+    (local (defrule lemma-0
+	(equal (ttmrg->args (change-ttmrg->args tterm new-ttargs))
+	       (ttmrg-list-fix new-ttargs))
+	:expand (change-ttmrg->args tterm new-ttargs)))
+
+    (defrule ttmrg-args-correct-p-of-update-path-cond-term-help
+      (implies
+	(and (ttmrg-correct-p tterm)
+	     (ev-smtcp-meta-extract-global-facts))
+	(ttmrg-args-correct-p (update-path-cond-term-help tterm)))
+      :in-theory (disable ttmrg-args-correct-p-when-ttmrg-correct-p)
+      :use ((:instance ttmrg-args-correct-p-when-ttmrg-correct-p
+		       (tterm (change-ttmrg->args
+				tterm
+				(update-path-cond-term-help tterm))))))
+
+    (defrule ttmrg->args-of-update-path-cond-term-help
+      (implies
+	(and (ttmrg-correct-p tterm)
+	     (ev-smtcp-meta-extract-global-facts))
+	(equal (ttmrg->args
+		 (change-ttmrg->args tterm (update-path-cond-term-help tterm)))
+	       (update-path-cond-term-help tterm))))
+
+    (local (defrule lemma-correct-p-1
+      (implies
+	(and (ev-smtcp-meta-extract-global-facts)
+	     (ttmrg-correct-p tterm)
+	     (ttmrg-args-correct-p
+	       (update-path-cond-args (ttmrg->args tterm))))
+	(ttmrg-correct-p
+	  (change-ttmrg->args
+	    tterm
+	    (update-path-cond-args (ttmrg->args tterm)))))
+      :use((:functional-instance
+	ttmrg-correct-p-of-constrain-ttmrg->args-args
+	(constrain-ttmrg->args-args
+	  (lambda (tterm state)
+	     (update-path-cond-args (ttmrg->args tterm))))))))
+
+    (defrule lemma-correct-p-2
+      (implies
+	(and (ev-smtcp-meta-extract-global-facts)
+	     (ttmrg-correct-p tterm)
+	     (ttmrg-args-correct-p
+	       (update-path-cond-args (update-path-cond-term-help tterm))))
+	(ttmrg-correct-p
+	  (change-ttmrg->args
+	    (change-ttmrg->args tterm
+				(update-path-cond-term-help tterm))
+	    (update-path-cond-args (update-path-cond-term-help tterm)))))
+      :rule-classes ((:rewrite :match-free :all))
+      :in-theory (disable lemma-correct-p-1)
+      :use((:instance lemma-correct-p-1
+			(tterm (change-ttmrg->args
+				 tterm
+				 (update-path-cond-term-help tterm))))))))
+
+   (defthm-update-path-cond-flag
+     (defthm ttmrg-correct-p-of-update-path-cond-term
+       (implies (and (ev-smtcp-meta-extract-global-facts)
+		     (ttmrg-correct-p tterm))
+		(ttmrg-correct-p (update-path-cond-term tterm)))
+       :flag term)
+     (defthm ttmrg-args-correct-p-of-update-path-cond-args
+       (implies (and (ev-smtcp-meta-extract-global-facts)
+		     (ttmrg-args-correct-p ttargs))
+		(ttmrg-args-correct-p (update-path-cond-args ttargs)))
+       :flag args)
+     :hints(("Goal"
+       :in-theory (enable ttmrg-args-correct-p)))))
 
 
 (defsection move-this-stuff-to-../utils/pseudo-term
@@ -202,19 +346,21 @@
 
   (defthm-term-q-flag ev-smtcp-of-ground-term
     (defthm ev-smtcp-of-ground-term
-      (implies (and (pseudo-termp term) (null (acl2::simple-term-vars term))
+      (implies (and (pseudo-termp term)
+		    (null (acl2::simple-term-vars term))
 		    (alistp a1) (alistp a2) (not (equal a1 a2)))
 	       (equal (ev-smtcp term a1) (ev-smtcp term a2)))
       :flag term)
 
     (defthm ev-smtcp-of-ground-args
-      (implies (and (pseudo-term-listp args) (null (acl2::simple-term-vars-lst args)) (alistp a1) (alistp a2))
+      (implies (and (pseudo-term-listp args)
+		    (null (acl2::simple-term-vars-lst args))
+		    (alistp a1) (alistp a2))
 	       (equal (ev-smtcp-lst args a1) (ev-smtcp-lst args a2)))
       :flag args)
     :hints(("Goal" :in-theory (enable pseudo-termp pseudo-term-listp
 				      acl2::simple-term-vars acl2::simple-term-vars-lst
 				      ev-smtcp-of-fncall-args)))))
-
 
 (define judgements-of-ground-term-helper
     ((c pseudo-termp) (recognizers type-recognizer-list-p)
@@ -255,8 +401,10 @@
 	      (not (acl2::simple-term-vars j-cdr)))
 	    (not (acl2::simple-term-vars (conj-cons (list fn c) j-cdr)))))
 	:in-theory (disable simple-term-vars-of-conj-cons)
-	:use((:instance simple-term-vars-of-conj-cons (hd (list (type-recognizer->fn (car recognizers)) c))
-						      (tl (judgements-of-ground-term-helper c (cdr recognizers) env state)))))))
+	:use((:instance simple-term-vars-of-conj-cons
+			  (hd (list (type-recognizer->fn (car recognizers)) c))
+			  (tl (judgements-of-ground-term-helper
+				c (cdr recognizers) env state)))))))
 
   (defrule correctness-of-judgements-of-ground-term-helper
     (implies (and (ev-smtcp-meta-extract-global-facts)
@@ -316,14 +464,17 @@
   :output (:fail (:all . :warn)))
 
 
-(define judgements-of-const ((tterm ttmrg-syntax-p) (recognizers type-recognizer-list-p) (state state-p))
+(define judgements-of-const ((tterm ttmrg-syntax-p)
+			     (recognizers type-recognizer-list-p)
+			     (state state-p))
   :guard (and (consp (ttmrg->term tterm))
 	      (equal (car (ttmrg->term tterm)) 'quote))
   :guard-debug t
   :returns (new-tt ttmrg-p)
   (b* (((ttmrg tterm) (ttmrg-fix tterm))
-       (new-top-judge (judgements-of-ground-term-helper tterm.term recognizers nil state)))
-     (strengthen-ttmrg->top-judge tterm new-top-judge))
+       (new-top-judge
+	 (judgements-of-ground-term-helper tterm.term recognizers nil state)))
+     (strengthen-ttmrg->top-judgement tterm new-top-judge))
   ///
   (more-returns
     (new-tt :name correctness-of-judgements-of-const
@@ -332,16 +483,17 @@
 	       (ttmrg-correct-p new-tt))
       :hints(("Goal"
        :use((:functional-instance
-	      correctness-of-strengthen-ttmrg->top-judge
-		(constrain-ttmrg->top-judge
+	      correctness-of-strengthen-ttmrg->top-judgement
+		(constrain-ttmrg->top-judgement
 		  (lambda (tterm state)
-		    (judgements-of-ground-term-helper (ttmrg->term tterm) recognizers nil state))))))))
+		    (judgements-of-ground-term-helper
+		      (ttmrg->term tterm) recognizers nil state))))))))
     (new-tt :name judgements-of-const--unchanged-fields
-      (ttmrg-only-changed->judgements tterm new-tt))))
+      (ttmrg-only-changed->top-judgement tterm new-tt))))
 
 
 ;; ------------------------------------------------------------------
-;;    Variable judgements
+;;    Judgements of variables
 
 (define judgements-of-variable-helper
     ((tterm ttmrg-syntax-p) (options type-options-p) (state state-p))
@@ -366,157 +518,217 @@
 (define judgements-of-variable
     ((tterm ttmrg-syntax-p) (options type-options-p) (state state-p))
   :returns (new-tt ttmrg-p)
-  (strengthen-ttmrg->top-judge tterm
+  (strengthen-ttmrg->top-judgement tterm
     (judgements-of-variable-helper tterm options state))
   ///
   (more-returns
-    (new-tt :name correctness-of-type-judgement-variable
+    (new-tt :name correctness-of-judgements-of-variable
       (implies (and (ev-smtcp-meta-extract-global-facts)
 		    (ttmrg-correct-p tterm))
 	       (ttmrg-correct-p new-tt))
       :hints(("Goal"
        :in-theory (enable judgements-of-variable)
        :use((:functional-instance
-	      correctness-of-strengthen-ttmrg->top-judge
-		(constrain-ttmrg->top-judge
+	      correctness-of-strengthen-ttmrg->top-judgement
+		(constrain-ttmrg->top-judgement
 		  (lambda (tterm state)
 		    (judgements-of-variable-helper tterm options state))))))))
     (new-tt :name judgements-of-variable--unchanged-fields
-      (ttmrg-only-changed->judgements tterm new-tt))))
+      (ttmrg-only-changed->top-judgement tterm new-tt))))
 
-;; ------------------------------------------------------------------
-;;    The main type-judgements
 
-(define type-judgement-if-top ((judge-then pseudo-termp)
-                               (then pseudo-termp)
-                               (judge-else pseudo-termp)
-                               (else pseudo-termp)
-                               (cond pseudo-termp)
-                               (names symbol-listp)
-                               (options type-options-p))
-  :returns (judge-if-top pseudo-termp)
-  (b* ((judge-then (pseudo-term-fix judge-then))
-       (then (pseudo-term-fix then))
-       (judge-else (pseudo-term-fix judge-else))
-       (else (pseudo-term-fix else))
-       (names (symbol-list-fix names))
-       (options (type-options-fix options))
-       (supertype-alst (type-options->supertype options))
-       (new-var (new-fresh-var names))
-       ((mv fast-else &)
-        (make-fast-judgements judge-else else new-var
-                              supertype-alst nil 0))
-       (ind-lst
-        (map-judgements judge-then then new-var supertype-alst fast-else))
-       ((mv judge-then-common &)
-        (construct-judge-by-list judge-then then
-                                 supertype-alst ind-lst ''t))
-       (judge-else-common
-        (construct-judge-by-find judge-else else supertype-alst ind-lst ''t))
-       (judge `(if ,cond ,judge-then-common ,judge-else-common)))
-    (merge-if-judgements (rearrange-if-judgements judge) then else supertype-alst)))
+(define judgements-of-if ((tterm ttmrg-syntax-p))
+  :returns (new-tt ttmrg-p)
+  :guard (and (consp (ttmrg->term tterm))
+	      (equal (car (ttmrg->term tterm)) 'if))
+  (b* (((ttmrg tterm) (ttmrg-fix tterm))
+       ((unless (mbt (and (consp tterm.term) (equal (car tterm.term) 'if))))
+	tterm)
+       (thenj (ttmrg->top-judgement (cadr tterm.args)))
+       (elsej (ttmrg->top-judgement (caddr tterm.args))))
+    (strengthen-ttmrg->top-judgement tterm (conj-common thenj elsej)))
+  ///
+ (defrule correctness-of-judgements-of-if
+   (let ((new-tt (judgements-of-if tterm)))
+     (implies (and (ev-smtcp-meta-extract-global-facts)
+		   (ttmrg-correct-p tterm))
+	      (ttmrg-correct-p new-tt)))
+   :expand (judgements-of-if tterm)
+   :use((:functional-instance correctness-of-strengthen-ttmrg->top-judgement
+	   (constrain-ttmrg->top-judgement
+	    (lambda (tterm state)
+	      (if (and (ttmrg-correct-p tterm)
+		       (equal (car (ttmrg->term tterm)) 'if))
+		(conj-common
+		  (ttmrg->top-judgement (cadr (ttmrg->args tterm)))
+		  (ttmrg->top-judgement (caddr (ttmrg->args tterm))))
+		''t)))))
+   :prep-lemmas (
+     (defrule path-cond-implies-judgements
+       (implies (and (ttmrg-correct-p tterm)
+		     (alistp env)
+		     (equal (car (ttmrg->term tterm)) 'if)
+		     (ev-smtcp (ttmrg->path-cond tterm) env))
+		(ev-smtcp (conj-common
+			    (ttmrg->top-judgement (cadr (ttmrg->args tterm)))
+			    (ttmrg->top-judgement (caddr (ttmrg->args tterm))))
+			  env))
+       :use((:instance ttmrg->path-cond-of-ifargs-when-ttmrg-correct-sk))
+       :prep-lemmas (
+	 (in-theory (enable ttmrg-correct-sk-thms))
+	 (defrule lemma-then
+	   (implies
+	     (and (ttmrg-correct-p tterm)
+		  (alistp env)
+		  (equal (car (ttmrg->term tterm)) 'if))
+	     (and
+	       (implies
+		 (ev-smtcp (ttmrg->path-cond (cadr (ttmrg->args tterm))) env)
+		 (ev-smtcp (ttmrg->top-judgement (cadr (ttmrg->args tterm))) env))
+	       (implies
+		 (ev-smtcp (ttmrg->path-cond (caddr (ttmrg->args tterm))) env)
+		 (ev-smtcp (ttmrg->top-judgement (caddr (ttmrg->args tterm))) env))))
+	   :use((:instance member-when-ttmrg-args-correct-p
+			     (ttargs (ttmrg->args tterm))
+			     (ttarg (cadr (ttmrg->args tterm))))
+		(:instance member-when-ttmrg-args-correct-p
+			     (ttargs (ttmrg->args tterm))
+			     (ttarg (caddr (ttmrg->args tterm))))
+		(:instance ttmrg-syntax-p))))))))
 
-(defthm correctness-of-type-judgement-if-top
-  (implies (and (ev-smtcp-meta-extract-global-facts)
-                (pseudo-termp judge-then)
-                (pseudo-termp then)
-                (pseudo-termp judge-else)
-                (pseudo-termp else)
-                (pseudo-termp cond)
-                (alistp a)
-                (ev-smtcp `(if ,cond ,judge-then ,judge-else) a))
-           (ev-smtcp (type-judgement-if-top judge-then then judge-else else
-                                            cond names options)
-                     a))
-  :hints (("Goal"
-           :in-theory (e/d (type-judgement-if-top)
-                           (CORRECTNESS-OF-PATH-TEST-LIST-COROLLARY
-                            correctness-of-path-test-list
-                            correctness-of-path-test
-                            consp-of-pseudo-lambdap
-                            symbol-listp
-                            EV-SMTCP-OF-VARIABLE)))))
 
-(define augment-path-cond ((cond pseudo-termp)
-                           (judge-cond pseudo-termp)
-                           (path-cond pseudo-termp)
-                           (supertype-alst type-to-types-alist-p))
-  :returns (mv (then-pc pseudo-termp)
-               (else-pc pseudo-termp))
-  (b* ((cond (pseudo-term-fix cond))
-       (judge-cond (pseudo-term-fix judge-cond))
-       (path-cond (pseudo-term-fix path-cond))
-       ((mv okp1 var1 term1)
-        (case-match cond
-          (('equal lhs rhs) (mv (symbolp lhs) lhs rhs))
-          (& (mv nil nil nil))))
-       ((mv okp2 var2 term2)
-        (case-match cond
-          (('not ('equal lhs rhs)) (mv (symbolp lhs) lhs rhs))
-          (& (mv nil nil nil))))
-       ((unless (or okp1 okp2))
-        (mv (conjoin `(,(simple-transformer cond) ,path-cond))
-            (conjoin `(,(simple-transformer `(not ,cond)) ,path-cond))))
-       ((if okp1)
-        (mv (conjoin `(,(generate-judge-from-equality var1 term1 judge-cond
-                                                      supertype-alst)
-                       ,(simple-transformer cond) ,path-cond))
-            (conjoin `(,(simple-transformer `(not ,cond)) ,path-cond)))))
-    (mv (conjoin `(,(simple-transformer cond) ,path-cond))
-        (conjoin `(,(generate-judge-from-equality var2 term2 judge-cond
-                                                  supertype-alst)
-                   ,(simple-transformer `(not ,cond)) ,path-cond)))))
+(define judgements-of-fncall-help ((tterm ttmrg-syntax-p)
+				   (options type-options-p)
+				   (state state-p))
+  :returns (new-judge conj-p)
+  :guard (and (consp (ttmrg->term tterm))
+	      (not (equal (car (ttmrg->term tterm)) 'quote))
+	      (not (equal (car (ttmrg->term tterm)) 'if)))
+  :guard-hints(("Goal" :use((:instance ttmrg-syntax-p))))
+  (b* (((ttmrg tterm) (ttmrg-fix tterm))
+       ((unless (mbt (and (consp tterm.term)
+			  (not (equal (car tterm.term) 'quote))
+			  (not (equal (car tterm.term) 'if)))))
+	''t)
+       ((cons fn actuals) tterm.term)
+       (actuals-judgements-top (ttmrg->args-judgements tterm))
+       (functions (type-options->functions options))
+       (conspair (assoc-equal fn functions))
+       ((unless conspair)
+	(prog2$ (cw "no returns theorem found for ~x0~%" fn) ''t)))
+    (term-to-conj
+      (extend-judgements
+	(returns-judgement
+	  fn actuals actuals-judgements-top (cdr conspair)
+	  tterm.path-cond ''t state)
+	tterm.path-cond options state))))
 
-(defthm correctness-of-augment-path-cond-1
-  (implies (and (ev-smtcp-meta-extract-global-facts)
-                (pseudo-termp cond)
-                (pseudo-termp judge-cond)
-                (pseudo-termp path-cond)
-                (alistp a)
-                (ev-smtcp judge-cond a))
-           (b* (((mv then-pc &)
-                 (augment-path-cond cond judge-cond path-cond supertype-alst)))
-             (iff (ev-smtcp then-pc a)
-                  (ev-smtcp `(if ,cond ,path-cond 'nil) a))))
-  :hints (("Goal"
-           :in-theory (e/d (augment-path-cond simple-transformer)
-                           (pseudo-termp
-                            correctness-of-path-test-list-corollary
-                            correctness-of-path-test-list
-                            correctness-of-path-test
-                            symbol-listp
-                            acl2::symbol-listp-when-not-consp
-                            ev-smtcp-of-variable
-                            consp-of-is-conjunct?
-                            acl2::pseudo-termp-opener)))))
+(define judgements-of-fncall ((tterm ttmrg-syntax-p)
+			      (options type-options-p)
+			      (state state-p))
+  :returns (new-tt ttmrg-p)
+  :guard (and (consp (ttmrg->term tterm))
+	      (not (equal (car (ttmrg->term tterm)) 'quote))
+	      (not (equal (car (ttmrg->term tterm)) 'if)))
+  :verify-guards nil
+  (strengthen-ttmrg->top-judgement tterm
+    (judgements-of-fncall-help tterm options state))
+  ///
+  (local (defrule correctness-of-judgements-of-fncall-help
+    (let ((new-judge (judgements-of-fncall-help tterm options state)))
+      (implies (and (ev-smtcp-meta-extract-global-facts)
+		    (ttmrg-syntax-p tterm)
+		    (alistp env)
+		    (ev-smtcp (ttmrg->args-judgements tterm) env)
+		    (ev-smtcp (ttmrg->path-cond tterm) env))
+	       (ev-smtcp new-judge env)))
+      :in-theory (disable alistp correctness-of-returns-judgement)
+      :use((:instance judgements-of-fncall-help)
+	   (:instance correctness-of-returns-judgement
+		      (term (ttmrg->term tterm))
+		      (a env)
+		      (fn (car (ttmrg->term tterm)))
+		      (actuals (cdr (ttmrg->term tterm)))
+		      (actuals-judgements (ttmrg->args-judgements tterm))
+		      (path-cond (ttmrg->path-cond tterm))
+		      (respec-lst (cdr (assoc-equal (car (ttmrg->term tterm))
+						    (type-options->functions options))))
+		      (acc ''t)))
 
-(defthm correctness-of-augment-path-cond-2
-  (implies (and (ev-smtcp-meta-extract-global-facts)
-                (pseudo-termp cond)
-                (pseudo-termp judge-cond)
-                (pseudo-termp path-cond)
-                (alistp a)
-                (ev-smtcp judge-cond a))
-           (b* (((mv & else-pc)
-                 (augment-path-cond cond judge-cond path-cond supertype-alst)))
-             (iff (ev-smtcp else-pc a)
-                  (ev-smtcp `(if (not ,cond) ,path-cond 'nil) a))))
-  :hints (("Goal"
-           :in-theory (e/d (augment-path-cond simple-transformer)
-                           (pseudo-termp
-                            correctness-of-path-test-list-corollary
-                            correctness-of-path-test-list
-                            correctness-of-path-test
-                            symbol-listp
-                            acl2::symbol-listp-when-not-consp
-                            ev-smtcp-of-variable
-                            consp-of-is-conjunct?
-                            acl2::pseudo-termp-opener
-                            consp-of-pseudo-lambdap
-                            ev-smtcp-of-booleanp-call
-                            alistp
-                            implies-of-is-conjunct?
-                            implies-of-type-predicate-of-term)))))
+      :prep-lemmas (
+	(defrule lemma-1
+	  (implies (and (ttmrg-syntax-p tterm)
+			(consp (ttmrg->term tterm)))
+		   (symbolp (car (ttmrg->term tterm))))
+	  :use((:instance ttmrg-syntax-p))))))
+
+  (verify-guards judgements-of-fncall
+    :hints(("Goal" :use((:instance ttmrg-syntax-p)))))
+
+  (defrule correctness-of-judgements-of-fncall
+    (let ((new-tt (judgements-of-fncall tterm options state)))
+      (implies (and (ev-smtcp-meta-extract-global-facts)
+		    (consp (ttmrg->term tterm))
+		    (not (equal (car (ttmrg->term tterm)) 'quote))
+		    (not (equal (car (ttmrg->term tterm)) 'if))
+		    (ttmrg-correct-p tterm))
+	       (ttmrg-correct-p new-tt)))
+    :expand (judgements-of-fncall tterm options state)
+    :use((:functional-instance correctness-of-strengthen-ttmrg->top-judgement
+	    (constrain-ttmrg->top-judgement
+	     (lambda (tterm state)
+	       (if (and (ttmrg-correct-p tterm)
+			(consp (ttmrg->term tterm))
+			(not (equal (car (ttmrg->term tterm)) 'quote))
+			(not (equal (car (ttmrg->term tterm)) 'if)))
+		 (judgements-of-fncall-help tterm options state)
+		 ''t)))))
+    :prep-lemmas (
+      (defrule lemma-1
+	(implies (and (ttmrg-correct-p tterm)
+		      (consp (ttmrg->term tterm))
+		      (not (equal (car (ttmrg->term tterm)) 'quote))
+		      (not (equal (car (ttmrg->term tterm)) 'if))
+		      (alistp env)
+		      (ev-smtcp (ttmrg->path-cond tterm) env))
+		 (and (ttmrg-args-correct-p (ttmrg->args tterm))
+		      (ttmrg-args-correct-path (ttmrg->args tterm) env)))
+	:in-theory (e/d (ttmrg-correct-p ttmrg-correct-sk) (alistp))
+	:use((:instance ttmrg-correct-sk-necc))
+	:rule-classes ((:rewrite :match-free :all)))
+      (defrule lemma-2
+	(implies (and (alistp env)
+		      (ttmrg-correct-p tterm)
+		      (ev-smtcp (ttmrg->path-cond tterm) env))
+		 (ev-smtcp (ttmrg->top-judgement tterm) env))
+	:in-theory (e/d (ttmrg-correct-p ttmrg-correct-sk) (alistp))
+	:use((:instance ttmrg-correct-sk-necc)))
+      (defrule lemma-3
+	(implies (and (alistp env)
+		      (ttmrg-args-correct-p ttargs)
+		      (ttmrg-args-correct-path ttargs env))
+		 (ev-smtcp (ttmrg->args-judgements-help ttargs) env))
+	:in-theory (enable ttmrg-args-correct-p ttmrg-args-correct-path ttmrg->args-judgements-help))
+      (defrule lemma-4
+	(implies (and (ev-smtcp-meta-extract-global-facts)
+		      (alistp env)
+		      (ttmrg-correct-p tterm)
+		      (consp (ttmrg->term tterm))
+		      (not (equal (car (ttmrg->term tterm)) 'quote))
+		      (not (equal (car (ttmrg->term tterm)) 'if))
+		      (ev-smtcp (ttmrg->path-cond tterm) env))
+		 (ev-smtcp (judgements-of-fncall-help tterm options state)
+			   env))
+	:in-theory (disable alistp correctness-of-judgements-of-fncall-help)
+	:use((:instance correctness-of-judgements-of-fncall-help)
+	     (:instance ttmrg->args-judgements))))))
+
+(acl2::rule
+  (implies (alistp env)
+	   (equal (ev-smtcp ''t env) 't))
+  :do-not-induct t)
+
+
 
 (defines type-judgements
   :flag-local nil
